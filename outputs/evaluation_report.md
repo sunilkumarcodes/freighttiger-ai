@@ -1,6 +1,6 @@
 # Evaluation report
 
-Retrieval backend for end-to-end run: `tfidf`
+Retrieval backend for end-to-end run: `sentence-transformers`
 
 ## 1. Evidence validator on labelled (route-week, note) pairs
 n = 30 | TP 7 FP 0 FN 0 TN 23 | precision 1.0 | recall 1.0
@@ -40,6 +40,7 @@ Errors:
 
 | backend | gold note recall@k | gold recall@1 | route-specific recall@k | MRR |
 |---|---|---|---|---|
+| sentence-transformers | 1.00 | 1.00 | 1.00 | 0.818 |
 | tfidf | 1.00 | 0.67 | 1.00 | 0.818 |
 
 ## 5. End-to-end verdicts

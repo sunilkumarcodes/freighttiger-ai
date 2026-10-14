@@ -10,18 +10,19 @@
     "embedding_model": "sentence-transformers/all-MiniLM-L6-v2"
   },
   "retrieval": {
-    "backend": "tfidf",
-    "model": "sklearn TfidfVectorizer(word 1-2 grams, sublinear_tf)",
+    "backend": "sentence-transformers",
+    "model": "sentence-transformers/all-MiniLM-L6-v2",
     "top_k": 5,
     "queries": 19,
     "texts_embedded": 29,
-    "tokens_embedded": 0
+    "tokens_embedded": 935
   },
   "data_quality": {
     "rows_read": 2940,
     "rows_kept": 2940,
     "rows_dropped": 0,
     "dropped_by_reason": {},
+    "suspect_rows_kept": {},
     "warnings": []
   },
   "summary": {
@@ -35,6 +36,6 @@
       "N002"
     ]
   },
-  "runtime_seconds": 1.02,
-  "final_output_sha256": "d91440a6f50e099d041d916527a2db84d110ed3009b239b776685978040b6e33"
+  "runtime_seconds": 25.99,
+  "final_output_sha256": "1039b6f4dcfa989ce09b89f67dedeb9a97fa5c2f10cd303f06d64db1069a18c7"
 }

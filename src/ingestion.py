@@ -30,6 +30,7 @@ class DataQualityReport:
     rows_read: int = 0
     rows_kept: int = 0
     dropped: dict[str, list[str]] = field(default_factory=dict)  # reason -> shipment_ids
+    suspect: dict[str, list[str]] = field(default_factory=dict)  # kept, but implausible: reason -> shipment_ids
     warnings: list[str] = field(default_factory=list)
 
     def drop(self, reason: str, ids) -> None:
@@ -37,12 +38,18 @@ class DataQualityReport:
         if ids:
             self.dropped.setdefault(reason, []).extend(ids)
 
+    def flag(self, reason: str, ids) -> None:
+        ids = [str(i) for i in ids]
+        if ids:
+            self.suspect.setdefault(reason, []).extend(ids)
+
     def to_dict(self) -> dict:
         return {
             "rows_read": self.rows_read,
             "rows_kept": self.rows_kept,
             "rows_dropped": sum(len(v) for v in self.dropped.values()),
             "dropped_by_reason": {k: {"count": len(v), "shipment_ids": v[:50]} for k, v in self.dropped.items()},
+            "suspect_rows_kept": {k: {"count": len(v), "shipment_ids": v[:50]} for k, v in self.suspect.items()},
             "warnings": self.warnings,
         }
 
@@ -99,16 +106,48 @@ def clean_shipments(raw: pd.DataFrame) -> tuple[pd.DataFrame, DataQualityReport]
         raise ValueError(f"No valid shipment rows after validation: {report.to_dict()['dropped_by_reason']}")
     df["route"] = df["origin"] + "-" + df["destination"]
 
+    # The brief groups by route AND route_type. If one route appears with several types, each is tracked
+    # separately and labelled "A-B (Short)", so every (route, week_of) row in the output stays unique.
     types_per_route = df.groupby("route")["route_type"].nunique()
     for route in types_per_route[types_per_route > 1].index:
         report.warnings.append(
-            f"Route {route} appears with several route_types; each (route, route_type) is tracked separately."
+            f"Route {route} appears with several route_types; each (route, route_type) is tracked separately "
+            f"and labelled '{route} (<route_type>)'."
         )
+        mask = df["route"] == route
+        df.loc[mask, "route"] = route + " (" + df.loc[mask, "route_type"] + ")"
 
+    flag_implausible(df, report)
     report.rows_kept = len(df)
     for reason, ids in report.dropped.items():
         log.warning("Dropped %d shipment rows: %s", len(ids), reason)
+    for reason, ids in report.suspect.items():
+        log.warning("Kept %d implausible-looking shipment rows: %s", len(ids), reason)
     return df.reset_index(drop=True), report
+
+
+# A shipment is implausible (kept, but flagged) when it is far from its route's norm. These are not
+# dropped: a real detour or a real surcharge looks like this too. They are counted per week so a reviewer
+# can see when a flag rests on a possible data error rather than a real cost change.
+DISTANCE_TOLERANCE = 0.25   # |distance / route median - 1|
+COST_RATIO_LIMIT = 3.0      # shipment cost per tonne-km vs route median, either way
+
+
+def flag_implausible(df: pd.DataFrame, report: DataQualityReport) -> None:
+    key = ["route", "route_type"]
+    rate = df["freight_cost_inr"] / (df["quantity_tonnes"] * df["distance_km"])
+    dist_ratio = df["distance_km"] / df.groupby(key)["distance_km"].transform("median")
+    rate_ratio = rate / rate.groupby([df[k] for k in key]).transform("median")
+    checks = [
+        ("distance_far_from_route_median", (dist_ratio - 1).abs() > DISTANCE_TOLERANCE),
+        ("cost_per_tonne_km_far_from_route_median",
+         (rate_ratio > COST_RATIO_LIMIT) | (rate_ratio < 1 / COST_RATIO_LIMIT)),
+    ]
+    df["data_flag"] = ""
+    for reason, mask in checks:
+        mask &= df["data_flag"] == ""
+        report.flag(reason, df.loc[mask, "shipment_id"])
+        df.loc[mask, "data_flag"] = reason
 
 
 def load_notes(path: Path | str) -> pd.DataFrame:

@@ -1,12 +1,8 @@
-# Core pipeline (no network, no API keys needed at run time)
-pandas==3.0.6
-numpy==2.5.4
-scikit-learn==1.9.1
+# Everything: core pipeline and tests, semantic retrieval, dashboard.
+-r requirements-core.txt
 # Semantic retrieval (local CPU model: sentence-transformers/all-MiniLM-L6-v2, ~90 MB, downloaded once)
 sentence-transformers==6.1.0
 torch==2.14.1
 # Dashboard
 streamlit==1.66.0
 plotly==7.1.0
-# Tests
-pytest==9.1.1

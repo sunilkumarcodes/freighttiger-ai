@@ -20,11 +20,11 @@ from . import explanations as ex
 from .anomaly_detection import detect_anomalies
 from .config import (DEFAULT_CONFIG, FLAG_JUSTIFIED, FLAG_NO, FLAG_YES, NOTES_PATH, OUTPUT_COLUMNS,
                      SHIPMENTS_PATH, Config)
-from .evidence_validation import validate
+from .evidence_validation import could_apply, endpoints, validate
 from .ingestion import DataQualityReport, load_notes, load_shipments
 from .metrics import compute_route_week_metrics
 from .note_parser import NoteCard, build_note_cards
-from .retrieval import NoteIndex, anomaly_query, get_embedder
+from .retrieval import Hit, NoteIndex, anomaly_query, get_embedder
 
 log = logging.getLogger(__name__)
 
@@ -38,10 +38,26 @@ class RunResult:
     retrieval_info: dict = field(default_factory=dict)
 
 
+def _row_endpoints(row) -> frozenset[str] | None:
+    return endpoints(row.origin, row.destination) if hasattr(row, "origin") else None
+
+
+def candidate_hits(row, ranked: list[Hit], cards: dict[str, NoteCard], cfg: Config) -> list[Hit]:
+    """The top-k retrieved notes, plus any lower-ranked note that covers this route and week.
+
+    Retrieval decides which notes a reviewer sees first; it cannot decide the verdict by ranking a valid
+    note out of the top k. `ranked` must be the full ranking of every note.
+    """
+    ends = _row_endpoints(row)
+    return [h for h in ranked if h.rank <= cfg.retrieval_top_k
+            or could_apply(cards[h.note_id], row.route, row.week_of, ends)]
+
+
 def resolve_evidence(row, hits, cards: dict[str, NoteCard], cfg: Config):
     """Validate retrieved candidates in rank order. Returns (accepted, validations, closest_rejected)."""
+    ends = _row_endpoints(row)
     validations = [(cards[h.note_id], validate(cards[h.note_id], row.route, row.week_of,
-                                               row.own_history_pct, row.peer_pct, cfg), h) for h in hits]
+                                               row.own_history_pct, row.peer_pct, cfg, ends), h) for h in hits]
     accepted = next(((c, v) for c, v, _ in validations if v.valid), None)
     # Closest rejected candidate shown to the reviewer: best-ranked note that at least covers this route.
     closest = next(((c, v) for c, v, _ in validations
@@ -62,8 +78,9 @@ def run_pipeline(shipments_path: Path | str = SHIPMENTS_PATH, notes_path: Path |
     embedder = embedder or get_embedder(retriever, cfg.embedding_model, allow_fallback)
     index = NoteIndex(notes, embedder)
     anomalous = rows[rows["numeric_anomaly"]]
-    queries = [anomaly_query(r.route, r.week_of) for r in anomalous.itertuples()]
-    hits_by_row = dict(zip(anomalous.index, index.search_many(queries, cfg.retrieval_top_k)))
+    queries = [anomaly_query(r.route, r.week_of, r.origin, r.destination) for r in anomalous.itertuples()]
+    # Rank every note (there are few), then keep the top k plus any note the structured filter says applies.
+    ranked_by_row = dict(zip(anomalous.index, index.search_many(queries, len(index.note_ids))))
 
     out_records, audit_records = [], []
     for row in rows.itertuples():
@@ -72,9 +89,11 @@ def run_pipeline(shipments_path: Path | str = SHIPMENTS_PATH, notes_path: Path |
         if not row.numeric_anomaly:
             reason = ex.reason_not_flagged(row, cfg)
         else:
-            hits = hits_by_row[row.Index]
+            hits = candidate_hits(row, ranked_by_row[row.Index], cards, cfg)
             accepted, validations, closest = resolve_evidence(row, hits, cards, cfg)
-            retrieved = [{"note_id": h.note_id, "score": h.score, "rank": h.rank} for h in hits]
+            retrieved = [{"note_id": h.note_id, "score": h.score, "rank": h.rank,
+                          "via": "top_k" if h.rank <= cfg.retrieval_top_k else "route_and_date_filter"}
+                         for h in hits]
             checks = [{"note_id": v.note_id, "valid": v.valid,
                        "checks": {c.name: {"passed": c.passed, "detail": c.detail} for c in v.checks}}
                       for _, v, _ in validations]
@@ -85,6 +104,7 @@ def run_pipeline(shipments_path: Path | str = SHIPMENTS_PATH, notes_path: Path |
             else:
                 flagged, evidence = FLAG_YES, "none_qualified"
                 reason = ex.reason_unexplained(row, closest, cfg.history_weeks)
+            reason += ex.sample_text(row)
 
         out_records.append({
             "route": row.route,
@@ -98,7 +118,7 @@ def run_pipeline(shipments_path: Path | str = SHIPMENTS_PATH, notes_path: Path |
         })
         audit_records.append({
             "route": row.route, "route_type": row.route_type, "week_of": row.week_of.strftime("%Y-%m-%d"),
-            "n_shipments": row.n_shipments, "total_cost_inr": row.total_cost,
+            "n_shipments": row.n_shipments, "n_suspect_shipments": row.n_suspect, "total_cost_inr": row.total_cost,
             "total_tonne_km": round(row.total_tonne_km, 6),
             "cost_per_tonne_km": round(row.cost_per_tonne_km, 10),
             "own_history_avg": round(row.own_history_avg, 10), "n_prior_weeks": row.n_prior_weeks,

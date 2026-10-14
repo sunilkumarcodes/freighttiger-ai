@@ -50,25 +50,32 @@ class Validation:
 
 
 def route_endpoints(route: str) -> frozenset[str]:
+    """'Chennai-Bangalore' -> {'chennai', 'bangalore'}. Only for labels without hyphenated city names; the
+    pipeline passes the endpoints from the origin/destination columns instead."""
     return frozenset(p.strip().lower() for p in route.split("-"))
 
 
-def covers_route(card: NoteCard, route: str) -> bool:
-    return card.scope == "all" or (card.scope == "route" and route_endpoints(route) in card.routes)
+def endpoints(origin: str, destination: str) -> frozenset[str]:
+    return frozenset({origin.strip().lower(), destination.strip().lower()})
+
+
+def covers_route(card: NoteCard, route: str, ends: frozenset[str] | None = None) -> bool:
+    ends = ends if ends is not None else route_endpoints(route)
+    return card.scope == "all" or (card.scope == "route" and ends in card.routes)
 
 
 def _fmt(d: pd.Timestamp) -> str:
     return pd.Timestamp(d).strftime("%Y-%m-%d")
 
 
-def check_scope(card: NoteCard, route: str) -> Check:
+def check_scope(card: NoteCard, route: str, ends: frozenset[str] | None = None) -> Check:
     if card.scope == "none":
         return Check("scope", False, f"{card.note_id} says its affected routes are not part of this dataset",
                      "it says its affected routes are not in this dataset")
     if card.scope == "all":
         return Check("scope", True, f"{card.note_id} applies to all routes")
     # Corridor match is direction-agnostic: a flood on Chennai-Bangalore affects both directions.
-    if covers_route(card, route):
+    if covers_route(card, route, ends):
         return Check("scope", True, f"{card.note_id} applies to {card.coverage}")
     return Check("scope", False, f"{card.note_id} applies to {card.coverage}, not {route}",
                  f"it covers {card.coverage}, not this route")
@@ -122,10 +129,16 @@ def check_peer_gap(card: NoteCard, peer_pct: float, cfg: Config) -> Check:
     return Check("peer_gap", True, "no route-specific gap vs peers left to explain")
 
 
+def could_apply(card: NoteCard, route: str, week_of: pd.Timestamp, ends: frozenset[str] | None = None) -> bool:
+    """Structured pre-filter: the note covers this route and this week. Such notes are always validated,
+    whatever their retrieval rank, so a weak similarity score can never hide a valid justification."""
+    return check_scope(card, route, ends).passed and check_window(card, pd.Timestamp(week_of)).passed
+
+
 def validate(card: NoteCard, route: str, week_of: pd.Timestamp, own_pct: float, peer_pct: float,
-             cfg: Config) -> Validation:
+             cfg: Config, ends: frozenset[str] | None = None) -> Validation:
     return Validation(card.note_id, (
-        check_scope(card, route),
+        check_scope(card, route, ends),
         check_window(card, pd.Timestamp(week_of)),
         check_causal(card),
         check_magnitude(card, own_pct, cfg),

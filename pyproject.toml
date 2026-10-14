@@ -1,0 +1,17 @@
+[project]
+name = "freighttiger-ai"
+version = "1.0.0"
+description = "Flags unjustified freight cost rises per route-week and checks them against context notes."
+readme = "README.md"
+requires-python = ">=3.12"  # numpy 2.5
+# Exact pins live in requirements-core.txt / requirements.txt.
+dependencies = ["pandas>=3.0", "numpy>=2.0", "scikit-learn>=1.5"]
+
+[project.optional-dependencies]
+semantic = ["sentence-transformers>=3.0", "torch>=2.0"]
+dashboard = ["streamlit>=1.40", "plotly>=5.0"]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

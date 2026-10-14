@@ -51,6 +51,17 @@ def reason_not_flagged(row, cfg: Config) -> str:
             f"({cfg.own_history_threshold_pct:g}% vs own history, {cfg.peer_threshold_pct:g}% vs similar routes).")
 
 
+def sample_text(row) -> str:
+    """How much data the week rests on: each route-week averages only a handful of shipments."""
+    n = int(row.n_shipments)
+    text = f" Based on {n} shipment{'s' if n != 1 else ''} this week."
+    k = int(getattr(row, "n_suspect", 0))
+    if k:
+        text += (f" {k} of them look{'s' if k == 1 else ''} implausible (distance or cost far from this "
+                 f"route's norm); check the shipment data before acting on this.")
+    return text
+
+
 def reason_justified(row, card: NoteCard, history_weeks: int = 8) -> str:
     window = f"{card.start:%Y-%m-%d} to {card.end:%Y-%m-%d}"
     return (f"Justified by {card.note_id} ({card.date:%Y-%m-%d}, {card.applies_to}): \"{card.summary}\" "

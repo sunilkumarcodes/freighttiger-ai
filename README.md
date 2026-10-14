@@ -11,12 +11,12 @@ Result on the supplied data: 728 route-weeks, of which 16 are flagged (`Yes`), 3
 
 ## Running it
 
-Python 3.11 or newer is needed (pandas 3).
+Python 3.12 or newer is needed (numpy 2.5 and pandas 3).
 
 ```
-pip install -r requirements.txt
+pip install -r requirements.txt           # or requirements-core.txt: no torch/dashboard, TF-IDF only
 python run.py                              # writes outputs/final_output.csv and the logs
-pytest -q                                  # 129 tests
+pytest -q                                  # 133 tests
 python scripts/evaluate.py                 # scores against the labelled sets in eval/
 python scripts/reproducibility_check.py    # 3 separate runs, compares hashes
 streamlit run app.py                       # dashboard
@@ -40,7 +40,11 @@ The code is in `src/`:
 
 - `ingestion.py` loads the CSVs and drops bad rows: non-numeric values, zero or negative
   tonnes, km or cost, bad dates, unknown route types, duplicate ids. Every dropped row is
-  counted in a data quality report.
+  counted in a data quality report. Rows that are valid but implausible (distance more than
+  25% off the route's median, or a cost per tonne-km more than 3x off it) are kept but
+  flagged, and a flagged week's reason says how many of its shipments look like this. If one
+  route appears under two route types, each is tracked separately as "A-B (Short)" and
+  "A-B (Long)", so every output row stays unique.
 - `metrics.py` does the weekly numbers.
 - `anomaly_detection.py` applies the flag rule.
 - `note_parser.py` turns each note into structured fields (which routes, which dates, does it
@@ -111,7 +115,10 @@ average, so it doesn't count as rising and isn't flagged. The weeks around it ar
 For each flagged week I build a query like "Why did freight transport costs rise on the
 Chennai-Bangalore route in the week of 03 March 2025?". I embed it with
 `all-MiniLM-L6-v2` and take the 5 most similar notes. A TF-IDF retriever is included as a
-fallback and as a baseline to compare against.
+fallback and as a baseline to compare against. Any note ranked lower than 5th is still checked
+if it covers this route and this week, so a weak similarity score can never hide a valid
+reason. Retrieval decides the order a reviewer sees the notes in, never the verdict. (On the
+supplied data the right notes are always in the top 5, so this never adds a note.)
 
 Retrieval only suggests notes. A note justifies a week only if all of these checks pass:
 
@@ -154,7 +161,9 @@ the structured fields for new notes, with a person checking them.
 `outputs/final_output.csv` has the same columns, in the same order, as the sample. It has one
 row per route-week, so every weekly number can be checked, not just the flagged ones.
 `outputs/flagged_only.csv` has just the 19 flagged and justified rows. `matched_note_id` is
-filled only for justified rows. Text fields are properly quoted (the sample's third row has an
+filled only for justified rows. The reason for every flagged or justified week ends with how
+many shipments it rests on (about 4 per route-week here, so one odd shipment can move a week).
+Text fields are properly quoted (the sample's third row has an
 unquoted comma, which breaks it as CSV).
 
 `outputs/route_week_audit.csv` has the full-precision numbers, the retrieved notes with scores,
@@ -162,7 +171,7 @@ and the result of every check for every row.
 
 ## How I checked it
 
-- **Tests:** `pytest -q` runs 129 tests. They cover:
+- **Tests:** `pytest -q` runs 133 tests. They cover:
   - week boundaries and the cost formula
   - the history window, including the case with fewer than 8 weeks
   - leaving the route out of its peer average
@@ -196,7 +205,8 @@ and the result of every check for every row.
   corridor ("toll hike on the Mumbai-Pune expressway") is limited to that corridor. All are
   regression tests. Outputs and evaluation scores are unchanged.
 - **Retrieval depth:** validating all 10 notes instead of the top 5 gives exactly the same
-  verdicts, so the ranking can't change an outcome on this data.
+  verdicts. Since the route-and-date filter was added, this holds by construction, not just on
+  this data: a note that applies is always checked, whatever its rank.
 
 All of these label sets were written by me, so perfect scores mean the system agrees with a
 careful reading of these notes. They are not a general accuracy figure.
@@ -206,8 +216,10 @@ Retrieval quality on the 19 flagged-week queries (is the right note in the top 5
 
 | Retriever | correct note in top 5 | correct note ranked 1st | route's own notes in top 5 | MRR |
 |---|---|---|---|---|
-| sentence-transformer | not measured yet (run `python scripts/finalize.py` with internet) | | | |
+| sentence-transformer | 1.00 | 1.00 | 1.00 | 0.818 |
 | TF-IDF (baseline) | 1.00 | 0.67 | 1.00 | 0.818 |
+
+Verdict comparison (graded columns, cell by cell): semantic k=5 vs semantic k=all notes: identical; semantic vs TF-IDF: identical.
 <!-- RETRIEVAL:END -->
 
 ## Reproducibility
@@ -225,7 +237,7 @@ by note id. Input hashes ignore line endings, since git converts them on Windows
 locally: 10 notes plus one query per flagged week (19), in a single batch.
 
 <!-- BACKEND:START -->
-Note on the committed outputs: they were produced with the TF-IDF retriever, because the environment they were generated in could not download the sentence-transformer weights (huggingface.co was blocked). The verdicts don't depend on the retriever (see above). Running `python scripts/finalize.py` with internet access regenerates everything with the semantic model and updates this paragraph and the retrieval table.
+The committed outputs use `sentence-transformers/all-MiniLM-L6-v2` running locally on CPU. A full run embeds 10 notes and 19 queries (935 tokens by the model's tokenizer), with no API calls.
 <!-- BACKEND:END -->
 
 ## Limitations
@@ -244,6 +256,7 @@ Note on the committed outputs: they were produced with the TF-IDF retriever, bec
   highway names.
 - Scale: the weekly maths is a group-by plus a rolling window, and ran on 294k shipments in
   2 seconds. Retrieval only runs for flagged weeks (about 3% here). With thousands of notes I'd
-  move them to a vector store and filter by route and date first.
+  move them to a vector store with route and date as metadata filters, which is what the
+  current filter does in memory.
 
   platform link: https://freighttiger-ai.streamlit.app/

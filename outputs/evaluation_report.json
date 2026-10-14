@@ -1,5 +1,5 @@
 {
-  "pipeline_backend": "tfidf",
+  "pipeline_backend": "sentence-transformers",
   "pair_validator": {
     "description": "Does the validator accept exactly the (route-week, note) pairs a careful reader would?",
     "positive_class": "valid (note justifies the route-week)",
@@ -455,6 +455,19 @@
     "description": "Do the right notes reach the validator? Queries = the 19 numeric anomalies.",
     "top_k_used_in_pipeline": 5,
     "backends": {
+      "sentence-transformers": {
+        "model": "sentence-transformers/all-MiniLM-L6-v2",
+        "gold_justification_ranks": [
+          1,
+          1,
+          1
+        ],
+        "gold_justification_recall@5": 1.0,
+        "gold_justification_recall@1": 1.0,
+        "route_specific_note_pairs": 11,
+        "route_specific_recall@5": 1.0,
+        "route_specific_mrr": 0.8181818181818182
+      },
       "tfidf": {
         "model": "sklearn TfidfVectorizer(word 1-2 grams, sublinear_tf)",
         "gold_justification_ranks": [

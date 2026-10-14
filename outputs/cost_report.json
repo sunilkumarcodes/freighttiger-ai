@@ -9,18 +9,18 @@
     "why_zero": "No generative LLM is called. Explanations are deterministic templates filled with computed numbers and verbatim note text; verdicts come from deterministic validation."
   },
   "embeddings": {
-    "backend": "tfidf",
-    "model": "sklearn TfidfVectorizer(word 1-2 grams, sublinear_tf)",
+    "backend": "sentence-transformers",
+    "model": "sentence-transformers/all-MiniLM-L6-v2",
     "computed_locally": true,
     "api_calls": 0,
     "texts_embedded": 29,
     "notes_embedded": 10,
     "queries_embedded": 19,
-    "tokens_embedded": null,
-    "tokens_note": "Not applicable: TF-IDF is a sparse lexical model with no subword tokenizer.",
+    "tokens_embedded": 935,
+    "tokens_note": "Counted with the model's own tokenizer (includes special tokens).",
     "cost_usd": 0.0
   },
   "call_volume_design": "One retrieval query per numerically anomalous route-week (not per shipment); all queries embedded in a single batch.",
-  "runtime_seconds": 1.02,
+  "runtime_seconds": 25.99,
   "measurement_caveats": "runtime_seconds is wall-clock on the machine that produced this file."
 }

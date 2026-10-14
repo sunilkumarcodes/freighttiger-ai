@@ -240,11 +240,17 @@ ALL_SCOPE = re.compile(r"^(?:all(?:\s+(?:routes?|corridors?|lanes?))?(?:\s+(?:na
 
 
 def parse_route(text: str) -> frozenset[str] | None:
-    """'Chennai-Bangalore', 'Chennai – Bangalore', 'Chennai to Bangalore' -> {'chennai', 'bangalore'}."""
-    t = re.sub(r"\s+to\s+", "-", text.strip(), flags=re.IGNORECASE)
-    t = re.sub(r"\s*[-–—]\s*", "-", t)
-    ends = [p.strip().lower() for p in t.split("-") if p.strip()]
-    return frozenset(ends) if len(ends) == 2 and len(set(ends)) == 2 else None
+    """'Chennai-Bangalore', 'Chennai – Bangalore', 'Chennai to Bangalore' -> {'chennai', 'bangalore'}.
+
+    Separators are tried from least to most ambiguous, so 'Kanpur to Navi-Mumbai' keeps the hyphenated
+    city. A bare-hyphen label that splits into more than two parts is ambiguous and matches nothing.
+    """
+    t = text.strip()
+    for sep in (r"\s+to\s+", r"\s+[-–—]\s+", r"\s*[–—]\s*", r"-"):
+        ends = [p.strip().lower() for p in re.split(sep, t, flags=re.IGNORECASE) if p.strip()]
+        if len(ends) > 1:
+            return frozenset(ends) if len(ends) == 2 and len(set(ends)) == 2 else None
+    return None
 
 
 _NOT_PLACES = set(MONTHS) | {"january", "february", "march", "april", "june", "july", "august", "september",

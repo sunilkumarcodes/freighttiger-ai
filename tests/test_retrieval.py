@@ -290,9 +290,35 @@ def test_range_wrapping_year_end():
     assert (c.start, c.end) == (T("2024-12-28"), T("2025-01-04"))
 
 
+def test_low_ranked_note_that_applies_is_still_validated(cards):
+    """Retrieval cannot decide a verdict by ranking the right note out of the top k."""
+    from src.pipeline import candidate_hits, resolve_evidence
+    from src.retrieval import Hit
+
+    class Row:
+        route, origin, destination = "Chennai-Bangalore", "Chennai", "Bangalore"
+        week_of, own_history_pct, peer_pct = T("2025-02-24"), 31.5, 25.0
+
+    others = [n for n in sorted(cards) if n != "N001"]
+    ranked = [Hit(n, 0.9 - i / 100, i + 1) for i, n in enumerate(others)] + [Hit("N001", 0.01, 10)]
+    hits = candidate_hits(Row, ranked, cards, CFG)
+    assert [h.note_id for h in hits][-1] == "N001" and len(hits) == CFG.retrieval_top_k + 1
+    accepted, _, _ = resolve_evidence(Row, hits, cards, CFG)
+    assert accepted and accepted[0].note_id == "N001"
+
+
+def test_hyphenated_city_matches_through_origin_and_destination():
+    from src.evidence_validation import endpoints
+    c = _card("Kanpur to Navi-Mumbai", "Flooding raised trip costs from Feb 24 to Mar 8.")
+    ends = endpoints("Kanpur", "Navi-Mumbai")
+    assert validate(c, "Kanpur-Navi-Mumbai", T("2025-03-03"), 20.0, 5.0, CFG, ends).valid
+    # The label alone is ambiguous ("Kanpur-Navi" + "Mumbai"?), so without endpoints it fails safe.
+    assert not validate(c, "Kanpur-Navi-Mumbai", T("2025-03-03"), 20.0, 5.0, CFG).valid
+
+
 def test_sentence_transformer_wrapper_with_stub_model(monkeypatch):
     """Exercise the semantic code path (no weights available offline) with a stub model."""
-    import sentence_transformers
+    sentence_transformers = pytest.importorskip("sentence_transformers")
 
     class StubModel:
         def __init__(self, name, device=None):

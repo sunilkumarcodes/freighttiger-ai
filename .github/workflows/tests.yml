@@ -1,0 +1,30 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"  # numpy 2.5 needs Python >= 3.12
+      - run: pip install -r requirements-core.txt
+      # Core suite with the TF-IDF retriever; the semantic-model test skips without sentence-transformers.
+      - run: pytest -q
+      # The committed submission must be exactly what the code produces (TF-IDF backend outputs only
+      # differ in retrieval scores, never in graded columns, so compare those).
+      - run: python run.py --retriever tfidf --out-dir /tmp/ci_out --quiet
+      - run: |
+          python - <<'EOF'
+          import pandas as pd
+          cols = ["route", "week_of", "cost_per_tonne_km", "vs_own_history", "vs_similar_routes",
+                  "flagged", "matched_note_id"]
+          a = pd.read_csv("outputs/final_output.csv", dtype=str, keep_default_na=False)[cols]
+          b = pd.read_csv("/tmp/ci_out/final_output.csv", dtype=str, keep_default_na=False)[cols]
+          assert a.equals(b), "committed outputs/final_output.csv is out of date"
+          print("committed graded columns match a fresh run")
+          EOF

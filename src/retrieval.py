@@ -90,8 +90,10 @@ def note_document(row) -> str:
     return f"Applies to: {row['applies_to']}. Date: {pd.Timestamp(row['date']):%d %B %Y}. {row['note']}"
 
 
-def anomaly_query(route: str, week_of: pd.Timestamp) -> str:
-    origin, _, destination = route.partition("-")
+def anomaly_query(route: str, week_of: pd.Timestamp, origin: str | None = None,
+                  destination: str | None = None) -> str:
+    if origin is None or destination is None:
+        origin, _, destination = route.partition("-")
     return (f"Why did freight transport costs rise on the {route} route ({origin} to {destination}) "
             f"in the week of {pd.Timestamp(week_of):%d %B %Y}?")
 

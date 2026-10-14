@@ -27,12 +27,16 @@ def weekly_costs(shipments: pd.DataFrame) -> pd.DataFrame:
     df = shipments.copy()
     df["week_of"] = week_start(df["shipment_date"])
     df["tonne_km"] = df["quantity_tonnes"] * df["distance_km"]
+    # Shipments flagged as implausible at ingestion (kept, but worth a look before acting on a flag).
+    df["is_suspect"] = (df["data_flag"] != "") if "data_flag" in df else False
     weekly = (
         df.groupby(ROUTE_KEY + ["week_of"], as_index=False)
         .agg(total_cost=("freight_cost_inr", "sum"),
              total_tonne_km=("tonne_km", "sum"),
-             n_shipments=("shipment_id", "size"))
+             n_shipments=("shipment_id", "size"),
+             n_suspect=("is_suspect", "sum"))
     )
+    weekly["n_suspect"] = weekly["n_suspect"].astype(int)
     weekly["cost_per_tonne_km"] = safe_div(weekly["total_cost"], weekly["total_tonne_km"])
     return weekly.sort_values(["route", "route_type", "week_of"]).reset_index(drop=True)
 
@@ -50,24 +54,16 @@ def pct_change(current, baseline):
 
 
 def add_own_history(weekly: pd.DataFrame, history_weeks: int = 8) -> pd.DataFrame:
+    # Time-based window [t - 8 weeks, t): closed="left" excludes the current week, so there is no look-ahead,
+    # and a calendar window (not "last 8 rows") means weeks with no shipments are skipped, never imputed.
     out = weekly.reset_index(drop=True)
-    hist_avg = np.full(len(out), np.nan)
-    n_prior = np.zeros(len(out), dtype=int)
-    window = np.timedelta64(7 * history_weeks, "D")
-
-    for _, idx in out.groupby(["route", "route_type"]).groups.items():
-        g = out.loc[idx].sort_values("week_of")
-        weeks = g["week_of"].to_numpy()
-        costs = g["cost_per_tonne_km"].to_numpy()
-        for pos, row in enumerate(g.index):
-            t = weeks[pos]
-            prior = (weeks < t) & (weeks >= t - window)
-            n_prior[row] = int(prior.sum())
-            if prior.any():
-                hist_avg[row] = costs[prior].mean()
-
-    out["own_history_avg"] = hist_avg
-    out["n_prior_weeks"] = n_prior
+    key = ["route", "route_type"]
+    rolling = (out.sort_values(key + ["week_of"]).set_index("week_of")
+               .groupby(key)["cost_per_tonne_km"]
+               .rolling(f"{7 * history_weeks}D", closed="left"))
+    stats = pd.DataFrame({"own_history_avg": rolling.mean(), "n_prior_weeks": rolling.count()})
+    out = out.join(stats, on=key + ["week_of"])
+    out["n_prior_weeks"] = out["n_prior_weeks"].fillna(0).astype(int)
     out["own_history_pct"] = pct_change(out["cost_per_tonne_km"], out["own_history_avg"])
     return out
 

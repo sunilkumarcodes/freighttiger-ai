@@ -140,6 +140,27 @@ def test_invalid_rows_are_dropped_and_reported():
     assert by["duplicate_shipment_id"] == ["ok1"]
 
 
+def test_route_with_two_route_types_gets_unique_labels():
+    df = make_shipments([
+        ("A-B", "Short", "2024-01-01", 1, 1, 2),
+        ("A-B", "Long", "2024-01-01", 1, 1, 5),
+        ("C-D", "Short", "2024-01-01", 1, 1, 3),
+    ])
+    assert sorted(df["route"].unique()) == ["A-B (Long)", "A-B (Short)", "C-D"]
+    w = compute_route_week_metrics(df)
+    assert not w.duplicated(["route", "week_of"]).any()
+
+
+def test_implausible_shipments_are_kept_flagged_and_counted():
+    rows = [("A-B", "Short", "2024-01-0%d" % d, 10, 100, 1000) for d in range(1, 6)]
+    rows.append(("A-B", "Short", "2024-01-06", 10, 10, 1000))    # distance typo: 10 km instead of 100
+    rows.append(("A-B", "Short", "2024-01-07", 10, 100, 9000))   # 9x the route's usual rate
+    df = make_shipments(rows)
+    assert len(df) == 7  # nothing dropped
+    assert sorted(df.loc[df["data_flag"] != "", "shipment_id"]) == ["S00005", "S00006"]
+    assert weekly_costs(df).loc[0, "n_suspect"] == 2
+
+
 def test_missing_column_raises_schema_error():
     with pytest.raises(SchemaError):
         clean_shipments(pd.DataFrame({"shipment_id": ["x"]}))
