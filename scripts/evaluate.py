@@ -243,14 +243,15 @@ def main(argv=None) -> int:
         "pair_validator": eval_pair_validator(cards),
         "note_parser": eval_note_parser(cards),
         "impact_heldout": eval_impact_heldout(),
-        "impact_heldout_first_pass": json.loads((EVAL / "heldout_first_pass_result.json").read_text()),
+        "impact_heldout_first_pass": json.loads((EVAL / "heldout_first_pass_result.json").read_text(encoding="utf-8")),
         "retrieval": eval_retrieval(notes, run.output, backends),
         "end_to_end": eval_end_to_end(run),
         "threshold_sensitivity": threshold_sensitivity(run),
     }
     OUTPUT_DIR.mkdir(exist_ok=True)
-    (OUTPUT_DIR / "evaluation_report.json").write_text(json.dumps(rep, indent=2, default=str) + "\n")
-    (OUTPUT_DIR / "evaluation_report.md").write_text(to_markdown(rep))
+    write = dict(encoding="utf-8", newline="\n")
+    (OUTPUT_DIR / "evaluation_report.json").write_text(json.dumps(rep, indent=2, default=str) + "\n", **write)
+    (OUTPUT_DIR / "evaluation_report.md").write_text(to_markdown(rep), **write)
     print(to_markdown(rep))
     return 0
 

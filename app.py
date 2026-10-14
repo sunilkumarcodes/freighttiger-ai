@@ -152,7 +152,7 @@ with tab_ask:
     ex = st.selectbox("Example questions", [""] + examples)
     q = st.text_input("Your question", value=ex)
     if q:
-        res = answer(q, out)
+        res = answer(q, out, run.audit)
         st.markdown(res.text.replace("\n", "  \n"))
         if not res.rows.empty:
             st.dataframe(res.rows[OUTPUT_COLUMNS], hide_index=True, width="stretch")

@@ -16,7 +16,7 @@ Python 3.11 or newer is needed (pandas 3).
 ```
 pip install -r requirements.txt
 python run.py                              # writes outputs/final_output.csv and the logs
-pytest -q                                  # 111 tests
+pytest -q                                  # 129 tests
 python scripts/evaluate.py                 # scores against the labelled sets in eval/
 python scripts/reproducibility_check.py    # 3 separate runs, compares hashes
 streamlit run app.py                       # dashboard
@@ -120,7 +120,8 @@ Retrieval only suggests notes. A note justifies a week only if all of these chec
 2. **Dates.** The note's period overlaps the week. An explicit range like "Feb 24 to Mar 8" is
    used as written. An open-ended note like N003 ("starting this week") is applied for 8
    weeks, after which the change is part of the 8-week average anyway. A note with no stated
-   duration only covers the week it's dated. No note applies before its own date.
+   duration only covers the week it's dated. A note never applies before its own date unless its
+   text gives an explicit earlier start ("flooding from Feb 20 to Mar 8", reported on Feb 24).
 3. **Cause.** The note says costs went up. "Costs were not significantly affected" (N005),
    "absorbed without a rate change" (N010), and notes about normal or improved conditions
    (N006, N007, N008, N009) don't count. Neither do negated or hypothetical statements
@@ -161,7 +162,7 @@ and the result of every check for every row.
 
 ## How I checked it
 
-- **Tests:** `pytest -q` runs 111 tests. They cover:
+- **Tests:** `pytest -q` runs 129 tests. They cover:
   - week boundaries and the cost formula
   - the history window, including the case with fewer than 8 weeks
   - leaving the route out of its peer average
@@ -186,6 +187,14 @@ and the result of every check for every row.
   because it contains "surcharge". Negation, cancellation and speculation are now handled at
   the clause level. These cases are regression tests. The supplied notes never triggered the
   bug, so the output didn't change.
+- **Second audit:** a later review found one more unsafe case: a cancelling verb *before* the
+  cue ("transporters removed the festival surcharge", "scrapped the toll hike") was read as an
+  increase. These are now rejected. The same audit made three fixes that only affect notes
+  the parser used to reject wrongly, so none can let a bad note through: "but"/"however" now
+  end a clause, so "no flooding, but rates rose" counts as an increase; "unaffected" only
+  negates when a cost word is next to it; and an "All Routes" note whose text names a
+  corridor ("toll hike on the Mumbai-Pune expressway") is limited to that corridor. All are
+  regression tests. Outputs and evaluation scores are unchanged.
 - **Retrieval depth:** validating all 10 notes instead of the top 5 gives exactly the same
   verdicts, so the ranking can't change an outcome on this data.
 

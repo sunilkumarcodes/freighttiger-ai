@@ -81,10 +81,10 @@ def run_pipeline(shipments_path: Path | str = SHIPMENTS_PATH, notes_path: Path |
             if accepted:
                 card, _ = accepted
                 matched, flagged, evidence = card.note_id, FLAG_JUSTIFIED, "accepted"
-                reason = ex.reason_justified(row, card)
+                reason = ex.reason_justified(row, card, cfg.history_weeks)
             else:
                 flagged, evidence = FLAG_YES, "none_qualified"
-                reason = ex.reason_unexplained(row, closest)
+                reason = ex.reason_unexplained(row, closest, cfg.history_weeks)
 
         out_records.append({
             "route": row.route,

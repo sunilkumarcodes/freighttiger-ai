@@ -114,8 +114,9 @@ def main(argv=None) -> int:
         "runtime_seconds": round(elapsed, 2),
         "final_output_sha256": sha256(final),
     }
-    (out / "run_metadata.json").write_text(json.dumps(meta, indent=2, default=str) + "\n")
-    (out / "cost_report.json").write_text(json.dumps(cost_report(result, elapsed), indent=2) + "\n")
+    write = dict(encoding="utf-8", newline="\n")  # byte-identical on every OS
+    (out / "run_metadata.json").write_text(json.dumps(meta, indent=2, default=str) + "\n", **write)
+    (out / "cost_report.json").write_text(json.dumps(cost_report(result, elapsed), indent=2) + "\n", **write)
     if not args.quiet:
         print(json.dumps({k: meta[k] for k in ["retrieval", "summary", "final_output_sha256"]}, indent=2))
     return 0

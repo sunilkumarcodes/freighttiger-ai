@@ -31,11 +31,11 @@ def peer_text(peer_pct: float, route_type: str) -> str:
     return f"{fmt_pct(peer_pct)} vs similar-length routes this week"
 
 
-def _numbers(row) -> str:
+def _numbers(row, history_weeks: int = 8) -> str:
     parts = []
     if np.isfinite(row.own_history_pct):
         n = row.n_prior_weeks
-        basis = "" if n >= 8 else f" (only {n} prior week{'s' if n != 1 else ''} available)"
+        basis = "" if n >= history_weeks else f" (only {n} prior week{'s' if n != 1 else ''} available)"
         parts.append(f"{fmt_pct(row.own_history_pct)} vs its past average{basis}")
     if np.isfinite(row.peer_pct):
         parts.append(f"{fmt_pct(row.peer_pct)} vs similar-length routes")
@@ -47,21 +47,21 @@ def reason_not_flagged(row, cfg: Config) -> str:
         return "Not flagged: first week on record for this route, so there is no past average to compare against."
     if row.numeric_status == "not_rising":
         return f"Not flagged: cost is not rising ({fmt_pct(row.own_history_pct)} vs this route's past average)."
-    return (f"Not flagged: cost is {_numbers(row)}, within the review thresholds "
+    return (f"Not flagged: cost is {_numbers(row, cfg.history_weeks)}, within the review thresholds "
             f"({cfg.own_history_threshold_pct:g}% vs own history, {cfg.peer_threshold_pct:g}% vs similar routes).")
 
 
-def reason_justified(row, card: NoteCard) -> str:
+def reason_justified(row, card: NoteCard, history_weeks: int = 8) -> str:
     window = f"{card.start:%Y-%m-%d} to {card.end:%Y-%m-%d}"
     return (f"Justified by {card.note_id} ({card.date:%Y-%m-%d}, {card.applies_to}): \"{card.summary}\" "
             f"This week falls within the note's window ({window}), which explains the rise "
-            f"({_numbers(row)}).")
+            f"({_numbers(row, history_weeks)}).")
 
 
-def reason_unexplained(row, closest: tuple[NoteCard, Validation] | None) -> str:
+def reason_unexplained(row, closest: tuple[NoteCard, Validation] | None, history_weeks: int = 8) -> str:
     trig = {TRIGGER_OWN: "own history", TRIGGER_PEER: "similar-length routes"}
     triggered = " and ".join(trig[t] for t in row.anomaly_triggers.split("+") if t)
-    text = f"Unexplained: cost is {_numbers(row)} (out of the ordinary vs {triggered}). "
+    text = f"Unexplained: cost is {_numbers(row, history_weeks)} (out of the ordinary vs {triggered}). "
     if closest is None:
         return text + "No note applies to this route and week. Flagged for human review."
     card, val = closest

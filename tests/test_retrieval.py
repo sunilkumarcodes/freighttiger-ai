@@ -208,6 +208,52 @@ def test_speculative_notes_are_not_evidence(note):
     assert _card("All Routes", note).impact == IMPACT_UNKNOWN
 
 
+@pytest.mark.parametrize("note", [
+    "Transporters removed the festival surcharge this week.",
+    "The authority scrapped the toll hike on this stretch.",
+    "Carriers lifted the monsoon surcharge from Feb 24 to Mar 8.",
+    "Transporters withdrew the fuel surcharge from Feb 24 to Mar 8.",
+    "The state government rolled back the toll hike.",
+    "Operators cut the congestion surcharge after the flood.",
+])
+def test_cancelled_levy_is_not_an_increase(note):
+    c = _card("Chennai-Bangalore", note)
+    assert c.impact != IMPACT_INCREASE
+    assert not validate(c, "Chennai-Bangalore", T("2025-03-03"), 20.0, 5.0, CFG).valid
+
+
+@pytest.mark.parametrize("note", [
+    "There was no flooding, but transporters raised rates sharply.",
+    "Flooding raised freight rates; shippers were otherwise unaffected by delays.",
+    "Reduced truck availability pushed up freight rates.",
+    "The strike ended, driving up freight costs as backlogs cleared.",
+])
+def test_real_increases_are_not_mistaken_for_negations(note):
+    assert _card("Chennai-Bangalore", note).impact == IMPACT_INCREASE
+
+
+@pytest.mark.parametrize("note", [
+    "Freight costs were unaffected by the monsoon.",
+    "Fuel costs rose but contracted freight rates stayed flat for the quarter.",
+    "No detours, surcharges or delays were reported.",
+])
+def test_negations_still_hold(note):
+    assert _card("Chennai-Bangalore", note).impact != IMPACT_INCREASE
+
+
+def test_nationwide_tag_narrowed_to_corridor_named_in_text():
+    c = _card("All Routes", "A toll hike on the Mumbai-Pune expressway pushed up trip costs.", date="2025-03-03")
+    assert c.scope == "route" and "Mumbai-Pune" in c.coverage
+    assert validate(c, "Pune-Mumbai", T("2025-03-03"), 20.0, 5.0, CFG).valid
+    r = validate(c, "Delhi-Jaipur", T("2025-03-03"), 20.0, 5.0, CFG)
+    assert not r.valid and [f.name for f in r.failures] == ["scope"]
+
+
+def test_nationwide_note_with_month_range_stays_nationwide():
+    c = _card("All Routes", "Diesel prices rose from January to March, pushing up costs.")
+    assert c.scope == "all"
+
+
 @pytest.mark.parametrize("applies_to", [
     "Chennai-Bangalore", "Chennai - Bangalore", "Chennai to Bangalore", "Chennai–Bangalore",
     "bangalore-chennai", "Chennai-Bangalore, Mumbai-Pune", "Mumbai-Pune; Chennai-Bangalore",

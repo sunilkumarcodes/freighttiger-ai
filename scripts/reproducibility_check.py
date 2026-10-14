@@ -50,7 +50,7 @@ def main(argv=None) -> int:
 
     lines = [f"Reproducibility check - {args.runs} independent runs (separate processes), unchanged inputs",
              f"generated: {datetime.now(timezone.utc):%Y-%m-%d %H:%M UTC}", ""]
-    backends = {json.loads((d / "run_metadata.json").read_text())["retrieval"]["backend"] for d in dirs}
+    backends = {json.loads((d / "run_metadata.json").read_text(encoding="utf-8"))["retrieval"]["backend"] for d in dirs}
     lines.append(f"retrieval backend(s) used: {sorted(backends)}")
     inputs = [ROOT / "data" / "shipment_records.csv", ROOT / "data" / "context_notes.csv"]
     lines += [f"input  {p.name}: {content_sha256(p)}  (content hash, line endings normalised)" for p in inputs]
@@ -81,7 +81,7 @@ def main(argv=None) -> int:
               f"graded fields checked: {GRADED + ['reason']}", "",
               f"RESULT: {'IDENTICAL' if all_ok else 'MISMATCH'}"]
     report = "\n".join(lines) + "\n"
-    (ROOT / "outputs" / "reproducibility_report.txt").write_text(report)
+    (ROOT / "outputs" / "reproducibility_report.txt").write_text(report, encoding="utf-8", newline="\n")
     print(report)
     return 0 if all_ok else 1
 

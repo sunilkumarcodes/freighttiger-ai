@@ -56,13 +56,13 @@ def backend_block(meta: dict, cost: dict) -> str:
 
 
 def sync(readme: Path, out_dir: Path, invariance: dict | None = None) -> str:
-    report = json.loads((out_dir / "evaluation_report.json").read_text())
-    meta = json.loads((out_dir / "run_metadata.json").read_text())
-    cost = json.loads((out_dir / "cost_report.json").read_text())
+    report = json.loads((out_dir / "evaluation_report.json").read_text(encoding="utf-8"))
+    meta = json.loads((out_dir / "run_metadata.json").read_text(encoding="utf-8"))
+    cost = json.loads((out_dir / "cost_report.json").read_text(encoding="utf-8"))
     text = readme.read_text(encoding="utf-8")
     text = replace_block(text, "RETRIEVAL", retrieval_block(report, invariance))
     text = replace_block(text, "BACKEND", backend_block(meta, cost))
-    readme.write_text(text, encoding="utf-8")
+    readme.write_text(text, encoding="utf-8", newline="\n")
     return text
 
 

@@ -69,9 +69,9 @@ def check_scope(card: NoteCard, route: str) -> Check:
         return Check("scope", True, f"{card.note_id} applies to all routes")
     # Corridor match is direction-agnostic: a flood on Chennai-Bangalore affects both directions.
     if covers_route(card, route):
-        return Check("scope", True, f"{card.note_id} applies to {card.applies_to}")
-    return Check("scope", False, f"{card.note_id} applies to {card.applies_to}, not {route}",
-                 f"it covers {card.applies_to}, not this route")
+        return Check("scope", True, f"{card.note_id} applies to {card.coverage}")
+    return Check("scope", False, f"{card.note_id} applies to {card.coverage}, not {route}",
+                 f"it covers {card.coverage}, not this route")
 
 
 def check_window(card: NoteCard, week_of: pd.Timestamp) -> Check:

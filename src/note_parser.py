@@ -7,7 +7,7 @@ Policies (see README "Temporal applicability"):
   * explicit range ("from Feb 24 to Mar 8")  -> that range
   * open-ended start ("starting this week")  -> start week + `open_ended_note_weeks` weeks
   * anything else (duration unspecified)     -> the week containing the note date only.
-    A note never applies indefinitely and never applies before its own date.
+    A note never applies indefinitely, and only an explicit range can start before the note's date.
 """
 from __future__ import annotations
 
@@ -53,7 +53,8 @@ COST_NEGATION_CUES = [
     rf"no (?:change|increase|rise) in (?:the )?(?:freight |transport(?:ation)? )?{_COST_NOUN}",
     rf"{_COST_NOUN} (?:remained|stayed) (?:unchanged|flat|stable)",
     r"without passing (?:it|them|this|the cost) on",
-    r"unaffected",
+    # Only when it is the cost that is unaffected: "shippers were unaffected by delays" says nothing about rates.
+    rf"{_COST_NOUN}(?:\s+\w+){{0,3}}?\s+unaffected",
 ]
 # Cost went DOWN: never a justification for a rise.
 COST_DECREASE_CUES = [
@@ -84,6 +85,21 @@ _HEDGE_BEFORE = re.compile(r"\b(?:might|could|would|if|expected to|likely to|for
 _CANCELLED_AFTER = re.compile(
     r"^\W*(?:\w+\W+){0,3}?(?:was|were|has been|have been|is|are)?\s*(?:waived|withdrawn|removed|cancell?ed|"
     r"scrapped|rolled back|not applied|not levied|not charged|not passed)", re.IGNORECASE)
+# ... or cancelled right before: "transporters removed the festival surcharge", "scrapped the toll hike".
+_CANCEL_VERBS = (r"remov(?:e|ed|es|ing)|scrap(?:s|ped|ping)?|withdr(?:ew|awn|aws|awing)|waiv(?:e|ed|es|ing)|"
+                 r"roll(?:ed|s|ing)? back|cancell?(?:ed|ing|s)?|abolish(?:ed|es|ing)?|revok(?:e|ed|es|ing)|"
+                 r"revers(?:e|ed|es|ing)|discontinu(?:e|ed|es|ing)|eliminat(?:e|ed|es|ing)")
+# These also appear in genuine increases ("reduced truck availability pushed up rates", "lifted freight
+# rates", "the strike ended, driving up costs"), so they only cancel a levy: "lifted the surcharge".
+_LEVY_CANCEL_VERBS = (r"lift(?:ed|s|ing)?|end(?:ed|s|ing)|dropp(?:ed|ing)|cut(?:s|ting)?|reduc(?:e|ed|es|ing)|"
+                      r"lower(?:ed|s|ing)|slash(?:ed|es|ing)|suspend(?:ed|s|ing)?")
+_CANCELLED_BEFORE = re.compile(rf"\b(?:{_CANCEL_VERBS})\b(?:\W+\w+){{0,3}}\W*$", re.IGNORECASE)
+_LEVY_CANCELLED_BEFORE = re.compile(rf"\b(?:{_LEVY_CANCEL_VERBS})\b(?:\W+\w+){{0,3}}\W*$", re.IGNORECASE)
+_LEVY = re.compile(r"surcharge|toll|levy|levies|fee|premium|hike|increase", re.IGNORECASE)
+# Clause boundaries for negation scope: sentence punctuation, plus contrastive conjunctions, so the "no" in
+# "there was no flooding, but transporters raised rates" does not reach the second clause. Plain commas are
+# not boundaries: "no detours, surcharges or delays" must keep its negation.
+_CLAUSE_BOUNDARY = re.compile(r"[.;:!?]|\b(?:but|however|although|though|whereas|while|yet)\b", re.IGNORECASE)
 NORMAL_CONDITION_CUES = [
     r"returned to normal",
     r"remained (?:normal|stable)",
@@ -113,6 +129,11 @@ class NoteCard:
     impact: str
     impact_evidence: str
     magnitude_pct: tuple[float, float] | None
+    scope_label: str = ""           # what the scope covers, if narrower than `applies_to`
+
+    @property
+    def coverage(self) -> str:
+        return self.scope_label or self.applies_to
 
     @property
     def summary(self) -> str:
@@ -134,9 +155,12 @@ def _increase_cue(text: str) -> tuple[str | None, str | None, str | None]:
     negated = hedged = None
     for cue in COST_INCREASE_CUES:
         for m in re.finditer(cue, text, flags=re.IGNORECASE):
-            clause_start = max(text.rfind(c, 0, m.start()) for c in ".;:!?") + 1
-            before = text[clause_start:m.start()]
-            if _NEGATION_BEFORE.search(before) or _CANCELLED_AFTER.search(text[m.end():m.end() + 40]):
+            boundaries = [b.end() for b in _CLAUSE_BOUNDARY.finditer(text, 0, m.start())]
+            before = text[(boundaries[-1] if boundaries else 0):m.start()]
+            cancelled_before = _CANCELLED_BEFORE.search(before) or (
+                _LEVY_CANCELLED_BEFORE.search(before) and _LEVY.search(m.group(0)))
+            if (_NEGATION_BEFORE.search(before) or cancelled_before
+                    or _CANCELLED_AFTER.search(text[m.end():m.end() + 40])):
                 negated = negated or m.group(0)
                 continue
             if _HEDGE_BEFORE.search(before):
@@ -223,28 +247,51 @@ def parse_route(text: str) -> frozenset[str] | None:
     return frozenset(ends) if len(ends) == 2 and len(set(ends)) == 2 else None
 
 
-def parse_scope(applies_to: str, text: str) -> tuple[str, tuple[frozenset[str], ...]]:
+_NOT_PLACES = set(MONTHS) | {"january", "february", "march", "april", "june", "july", "august", "september",
+                              "october", "november", "december", "monday", "tuesday", "wednesday", "thursday",
+                              "friday", "saturday", "sunday"}
+# A corridor named in the note text: "the Mumbai-Pune expressway", "Delhi to Jaipur".
+CORRIDOR_IN_TEXT = re.compile(r"\b([A-Z][a-z]+)\s*(?:-|–|—|\bto\b)\s*([A-Z][a-z]+)\b")
+
+
+def corridors_in_text(text: str) -> list[str]:
+    found = []
+    for a, b in CORRIDOR_IN_TEXT.findall(text):
+        if a.lower() not in _NOT_PLACES and b.lower() not in _NOT_PLACES and a != b:
+            found.append(f"{a}-{b}")
+    return list(dict.fromkeys(found))
+
+
+def parse_scope(applies_to: str, text: str) -> tuple[str, tuple[frozenset[str], ...], str]:
+    """Returns (scope, routes, scope_label). scope_label is set only when the text narrows `applies_to`."""
     if _find(OUT_OF_SCOPE_CUES, text):
-        return "none", ()
+        return "none", (), ""
     a = re.sub(r"\s+", " ", applies_to.strip())
     if ALL_SCOPE.match(a):
-        return "all", ()
+        # Tagged nationwide but the text names specific corridors ("toll hike on the Mumbai-Pune
+        # expressway"): only those corridors are covered. Narrowing can only reject, never accept, more.
+        named = corridors_in_text(text)
+        if named:
+            routes = {parse_route(r) for r in named}
+            return "route", tuple(sorted(routes, key=sorted)), f"{', '.join(named)} (named in the note text)"
+        return "all", (), ""
     parts = re.split(r"\s*(?:,|;|/|&|\band\b)\s*", a, flags=re.IGNORECASE)
     routes = {r for r in (parse_route(p) for p in parts if p) if r}
     # Unparseable scope -> no routes -> never matches (fails safe).
-    return "route", tuple(sorted(routes, key=sorted))
+    return "route", tuple(sorted(routes, key=sorted)), ""
 
 
 def build_note_card(row, open_ended_weeks: int = 8) -> NoteCard:
     date = pd.Timestamp(row["date"]).normalize()
     text = str(row["note"])
-    scope, routes = parse_scope(str(row["applies_to"]), text)
+    scope, routes, scope_label = parse_scope(str(row["applies_to"]), text)
     start, end, basis = parse_window(text, date, open_ended_weeks)
     impact, evidence = classify_impact(text)
     return NoteCard(
         note_id=str(row["note_id"]), date=date, applies_to=str(row["applies_to"]), text=text,
         scope=scope, routes=routes, start=start, end=end, window_basis=basis,
         impact=impact, impact_evidence=evidence, magnitude_pct=parse_magnitude(text),
+        scope_label=scope_label,
     )
 
 

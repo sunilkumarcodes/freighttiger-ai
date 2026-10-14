@@ -34,22 +34,27 @@ def _find_routes(q: str, routes: list[str]) -> list[str]:
     return [r for s, r in scored if s == best and s > 0]
 
 
+def _month_pattern(m: str) -> str:
+    if m == "may":  # also a verb ("why may costs rise?"): only a month next to a date word or a year
+        return r"\b(?:in|during|of|since|by|until|from|early|mid|late|end of)\s+may\b|\bmay\s+20\d\d\b"
+    return rf"\b{m}\b|\b{m[:3]}\b"
+
+
 def _find_period(q: str) -> tuple[int | None, int | None]:
     ql = q.lower()
     year = re.search(r"\b(20\d\d)\b", ql)
-    month = next((i for i, m in enumerate(MONTHS, start=1) if re.search(rf"\b{m}\b|\b{m[:3]}\b", ql)), None)
+    month = next((i for i, m in enumerate(MONTHS, start=1) if re.search(_month_pattern(m), ql)), None)
     return month, int(year.group(1)) if year else None
 
 
 def _filter_period(df: pd.DataFrame, month, year) -> pd.DataFrame:
     w = pd.to_datetime(df["week_of"])
-    # A week belongs to a month if any of its 7 days fall in it.
-    ends = w + pd.Timedelta(days=6)
-    mask = pd.Series(True, index=df.index)
-    if month:
-        mask &= (w.dt.month == month) | (ends.dt.month == month)
-    if year:
-        mask &= (w.dt.year == year) | (ends.dt.year == year)
+    # A week belongs to a period if any of its 7 days falls in it. Month and year are checked on the same
+    # day, so the week of 2024-12-30 is in December 2024 and January 2025, not December 2025.
+    mask = pd.Series(False, index=df.index)
+    for offset in range(7):
+        d = w + pd.Timedelta(days=offset)
+        mask |= ((d.dt.month == month) if month else True) & ((d.dt.year == year) if year else True)
     return df[mask]
 
 
@@ -58,7 +63,8 @@ def _line(r) -> str:
     return f"- {r.route}, week of {r.week_of}: {r.flagged}{note}. {r.reason}"
 
 
-def answer(question: str, output: pd.DataFrame) -> Answer:
+def answer(question: str, output: pd.DataFrame, audit: pd.DataFrame | None = None) -> Answer:
+    """`audit` (optional) supplies full-precision percentages for ranking; otherwise the rounded CSV text is used."""
     q = question.strip()
     ql = q.lower()
     routes = sorted(output["route"].unique())
@@ -68,8 +74,13 @@ def answer(question: str, output: pd.DataFrame) -> Answer:
 
     if re.search(r"\b(highest|largest|biggest|top|worst)\b", ql):
         df = output.copy()
-        df["_own"] = df["vs_own_history"].str.extract(r"^([+-]?\d+\.\d)").astype(float)
-        df["_peer"] = df["vs_similar_routes"].str.extract(r"^([+-]?\d+\.\d)").astype(float)
+        if audit is not None:
+            exact = audit.set_index(["route", "week_of"])[["own_history_pct", "peer_pct"]]
+            exact = exact.rename(columns={"own_history_pct": "_own", "peer_pct": "_peer"})
+            df = df.join(exact, on=["route", "week_of"])
+        else:
+            df["_own"] = df["vs_own_history"].str.extract(r"^([+-]?\d+\.\d)").astype(float)
+            df["_peer"] = df["vs_similar_routes"].str.extract(r"^([+-]?\d+\.\d)").astype(float)
         df = df[df["flagged"] != "No"]
         if found:
             df = df[df["route"].isin(found)]
