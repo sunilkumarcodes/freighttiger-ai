@@ -1,0 +1,26 @@
+Reproducibility check - 3 independent runs (separate processes), unchanged inputs
+generated: 2026-10-14 20:29 UTC
+
+retrieval backend(s) used: ['tfidf']
+input  shipment_records.csv: 154a0b76cbc51ac7681d080f8fe7abd07aa8b63ae02bb68a7c937bcd935db163  (content hash, line endings normalised)
+input  context_notes.csv: 53b829198f96516089e95ff66617758292301f75f2c2511883fdeee52a3a926c  (content hash, line endings normalised)
+
+final_output.csv:
+  run_1  d91440a6f50e099d041d916527a2db84d110ed3009b239b776685978040b6e33
+  run_2  d91440a6f50e099d041d916527a2db84d110ed3009b239b776685978040b6e33
+  run_3  d91440a6f50e099d041d916527a2db84d110ed3009b239b776685978040b6e33
+  byte-identical across runs: True
+route_week_audit.csv:
+  run_1  73cd428a37900980880fce030cd0a56483a1dd2604ce76b407b0d9fd72c68ac4
+  run_2  73cd428a37900980880fce030cd0a56483a1dd2604ce76b407b0d9fd72c68ac4
+  run_3  73cd428a37900980880fce030cd0a56483a1dd2604ce76b407b0d9fd72c68ac4
+  byte-identical across runs: True
+
+Field-level comparison vs run_1 (final_output.csv):
+  run_2: same route-week rows: True; differing cells per column: {'cost_per_tonne_km': 0, 'vs_own_history': 0, 'vs_similar_routes': 0, 'flagged': 0, 'matched_note_id': 0, 'reason': 0}
+  run_3: same route-week rows: True; differing cells per column: {'cost_per_tonne_km': 0, 'vs_own_history': 0, 'vs_similar_routes': 0, 'flagged': 0, 'matched_note_id': 0, 'reason': 0}
+
+rows: 728; verdicts: {'No': 709, 'Yes': 16, 'No (justified)': 3}
+graded fields checked: ['cost_per_tonne_km', 'vs_own_history', 'vs_similar_routes', 'flagged', 'matched_note_id', 'reason']
+
+RESULT: IDENTICAL

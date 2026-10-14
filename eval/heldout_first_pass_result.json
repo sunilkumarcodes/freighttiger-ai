@@ -1,0 +1,81 @@
+{
+  "description": "Impact classifier on 24 notes NOT in the dataset, written to probe phrasing the supplied notes do not use. Same author as the rules, so this is a robustness probe, not an unbiased accuracy estimate.",
+  "confusion_matrix_gold_by_pred": {
+    "increase": {
+      "increase": 7,
+      "no_increase": 0,
+      "unknown": 1
+    },
+    "no_increase": {
+      "increase": 0,
+      "no_increase": 6,
+      "unknown": 5
+    },
+    "unknown": {
+      "increase": 0,
+      "no_increase": 0,
+      "unknown": 5
+    }
+  },
+  "increase_vs_rest": {
+    "tp": 7,
+    "fp": 0,
+    "fn": 1,
+    "tn": 16,
+    "precision": 1.0,
+    "recall": 0.875,
+    "accuracy": 0.9583333333333334,
+    "n": 24
+  },
+  "errors": [
+    {
+      "note_id": "H03",
+      "note": "Toll charges on the expressway were hiked, adding to trip costs for all carriers.",
+      "gold": "increase",
+      "predicted": "unknown",
+      "matched_cue": "",
+      "consequence": "safe: note rejected (missed justification)"
+    },
+    {
+      "note_id": "H09",
+      "note": "Diesel became cheaper this month as global crude prices fell.",
+      "gold": "no_increase",
+      "predicted": "unknown",
+      "matched_cue": "",
+      "consequence": "safe: still rejected"
+    },
+    {
+      "note_id": "H10",
+      "note": "The new GST e-way bill rule caused paperwork delays but rates did not change.",
+      "gold": "no_increase",
+      "predicted": "unknown",
+      "matched_cue": "",
+      "consequence": "safe: still rejected"
+    },
+    {
+      "note_id": "H13",
+      "note": "Carriers absorbed the higher toll without passing it on to shippers.",
+      "gold": "no_increase",
+      "predicted": "unknown",
+      "matched_cue": "",
+      "consequence": "safe: still rejected"
+    },
+    {
+      "note_id": "H17",
+      "note": "Transporters reduced rates to win back volume.",
+      "gold": "no_increase",
+      "predicted": "unknown",
+      "matched_cue": "",
+      "consequence": "safe: still rejected"
+    },
+    {
+      "note_id": "H21",
+      "note": "There was no increase in freight rates after the policy change.",
+      "gold": "no_increase",
+      "predicted": "unknown",
+      "matched_cue": "",
+      "consequence": "safe: still rejected"
+    }
+  ],
+  "frozen_note": "First-pass result of the cue lexicon on the held-out notes, recorded BEFORE the lexicon was revised in response to these errors. This is the only genuinely held-out number."
+}

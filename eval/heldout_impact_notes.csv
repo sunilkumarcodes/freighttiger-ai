@@ -1,0 +1,25 @@
+note_id,note,gold_impact,comment
+H01,Transporters raised freight rates by 10% after the new state entry tax.,increase,
+H02,A truckers' strike halted movement for three days and spot rates jumped sharply.,increase,
+H03,"Toll charges on the expressway were hiked, adding to trip costs for all carriers.",increase,
+H04,Fuel prices climbed for the second straight week.,increase,
+H05,Heavy snowfall forced detours and drove up operating costs on the corridor.,increase,
+H06,Port congestion led carriers to levy a congestion surcharge.,increase,
+H07,Freight costs increased due to a shortage of drivers during the harvest season.,increase,
+H08,Higher freight charges were reported after the bridge closure.,increase,
+H09,Diesel became cheaper this month as global crude prices fell.,no_increase,cost decrease
+H10,The new GST e-way bill rule caused paperwork delays but rates did not change.,no_increase,negated without listed cue
+H11,Monsoon rains caused minor delays; freight costs were unaffected.,no_increase,
+H12,Rates remained unchanged despite the festival season.,no_increase,
+H13,Carriers absorbed the higher toll without passing it on to shippers.,no_increase,
+H14,Highway traffic was normal and no disruptions were reported.,no_increase,
+H15,The corridor returned to normal operations after the landslide was cleared.,no_increase,
+H16,Road resurfacing work was completed and travel times improved.,no_increase,
+H17,Transporters reduced rates to win back volume.,no_increase,cost decrease
+H18,Monsoon rains slowed truck movement on the corridor.,unknown,disruption with no cost statement
+H19,A regional meeting discussed future toll policy.,unknown,
+H20,A new warehouse opened near the city outskirts.,unknown,
+H21,There was no increase in freight rates after the policy change.,no_increase,
+H22,Fuel costs rose but contracted freight rates stayed flat for the quarter.,no_increase,cost rose for carrier but not for shipper
+H23,Spot rates could rise next month if diesel prices continue climbing.,unknown,speculative / future
+H24,Heavy flooding disrupted truck movement and forced long detours.,unknown,disruption implies but does not state a cost rise

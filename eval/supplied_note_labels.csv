@@ -1,0 +1,11 @@
+note_id,gold_scope,gold_impact,gold_start,gold_end,gold_magnitude,rationale
+N001,route,increase,2025-02-24,2025-03-08,,"Explicit dates; 'higher trip costs'."
+N002,route,increase,2025-01-20,2025-01-26,,"'festival week' -> that week only; surcharge."
+N003,all,increase,2025-05-05,2025-06-29,5-7,"Open-ended; policy horizon 8 weeks; 5-7%."
+N004,none,increase,2024-03-11,2024-03-17,,"A new toll raises cost, but affected routes are not in the dataset."
+N005,route,no_increase,2024-07-29,2024-08-04,,"'costs were not significantly affected'."
+N006,all,no_increase,2025-09-22,2025-09-28,,"Stable demand, no disruption."
+N007,route,no_increase,2024-05-20,2024-05-26,,"Improved roads."
+N008,route,no_increase,2025-06-09,2025-06-15,,"No disruptions; movement normal."
+N009,route,no_increase,2025-03-17,2025-03-23,,"Returned to normal."
+N010,all,no_increase,2025-10-27,2025-11-02,,"Costs absorbed without a rate change."

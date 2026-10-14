@@ -1,0 +1,6 @@
+# Keep outputs and data byte-stable across Windows/macOS/Linux checkouts so SHA-256 hashes match.
+*.csv  text eol=lf
+*.json text eol=lf
+*.txt  text eol=lf
+*.md   text eol=lf
+*.py   text eol=lf

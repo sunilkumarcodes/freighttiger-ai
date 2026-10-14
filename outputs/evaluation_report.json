@@ -1,0 +1,855 @@
+{
+  "pipeline_backend": "tfidf",
+  "pair_validator": {
+    "description": "Does the validator accept exactly the (route-week, note) pairs a careful reader would?",
+    "positive_class": "valid (note justifies the route-week)",
+    "tp": 7,
+    "fp": 0,
+    "fn": 0,
+    "tn": 23,
+    "precision": 1.0,
+    "recall": 1.0,
+    "accuracy": 1.0,
+    "n": 30,
+    "by_category": {
+      "correct_match": {
+        "correct": 7,
+        "wrong": 0
+      },
+      "magnitude": {
+        "correct": 2,
+        "wrong": 0
+      },
+      "no_cost_impact": {
+        "correct": 3,
+        "wrong": 0
+      },
+      "normal_conditions": {
+        "correct": 4,
+        "wrong": 0
+      },
+      "out_of_scope": {
+        "correct": 2,
+        "wrong": 0
+      },
+      "peer_gap": {
+        "correct": 2,
+        "wrong": 0
+      },
+      "wrong_route": {
+        "correct": 4,
+        "wrong": 0
+      },
+      "wrong_window": {
+        "correct": 6,
+        "wrong": 0
+      }
+    },
+    "errors": []
+  },
+  "note_parser": {
+    "description": "Structured fields parsed from the 10 supplied notes vs manual labels (in-sample: the parser was written with these notes in view).",
+    "field_accuracy": {
+      "scope": "10/10",
+      "impact": "10/10",
+      "start": "10/10",
+      "end": "10/10",
+      "magnitude": "10/10"
+    },
+    "notes": [
+      {
+        "note_id": "N001",
+        "scope": {
+          "parsed": "route",
+          "gold": "route",
+          "ok": true
+        },
+        "impact": {
+          "parsed": "increase",
+          "gold": "increase",
+          "ok": true
+        },
+        "start": {
+          "parsed": "2025-02-24",
+          "gold": "2025-02-24",
+          "ok": true
+        },
+        "end": {
+          "parsed": "2025-03-08",
+          "gold": "2025-03-08",
+          "ok": true
+        },
+        "magnitude": {
+          "parsed": "",
+          "gold": "",
+          "ok": true
+        }
+      },
+      {
+        "note_id": "N002",
+        "scope": {
+          "parsed": "route",
+          "gold": "route",
+          "ok": true
+        },
+        "impact": {
+          "parsed": "increase",
+          "gold": "increase",
+          "ok": true
+        },
+        "start": {
+          "parsed": "2025-01-20",
+          "gold": "2025-01-20",
+          "ok": true
+        },
+        "end": {
+          "parsed": "2025-01-26",
+          "gold": "2025-01-26",
+          "ok": true
+        },
+        "magnitude": {
+          "parsed": "",
+          "gold": "",
+          "ok": true
+        }
+      },
+      {
+        "note_id": "N003",
+        "scope": {
+          "parsed": "all",
+          "gold": "all",
+          "ok": true
+        },
+        "impact": {
+          "parsed": "increase",
+          "gold": "increase",
+          "ok": true
+        },
+        "start": {
+          "parsed": "2025-05-05",
+          "gold": "2025-05-05",
+          "ok": true
+        },
+        "end": {
+          "parsed": "2025-06-29",
+          "gold": "2025-06-29",
+          "ok": true
+        },
+        "magnitude": {
+          "parsed": "5-7",
+          "gold": "5-7",
+          "ok": true
+        }
+      },
+      {
+        "note_id": "N004",
+        "scope": {
+          "parsed": "none",
+          "gold": "none",
+          "ok": true
+        },
+        "impact": {
+          "parsed": "increase",
+          "gold": "increase",
+          "ok": true
+        },
+        "start": {
+          "parsed": "2024-03-11",
+          "gold": "2024-03-11",
+          "ok": true
+        },
+        "end": {
+          "parsed": "2024-03-17",
+          "gold": "2024-03-17",
+          "ok": true
+        },
+        "magnitude": {
+          "parsed": "",
+          "gold": "",
+          "ok": true
+        }
+      },
+      {
+        "note_id": "N005",
+        "scope": {
+          "parsed": "route",
+          "gold": "route",
+          "ok": true
+        },
+        "impact": {
+          "parsed": "no_increase",
+          "gold": "no_increase",
+          "ok": true
+        },
+        "start": {
+          "parsed": "2024-07-29",
+          "gold": "2024-07-29",
+          "ok": true
+        },
+        "end": {
+          "parsed": "2024-08-04",
+          "gold": "2024-08-04",
+          "ok": true
+        },
+        "magnitude": {
+          "parsed": "",
+          "gold": "",
+          "ok": true
+        }
+      },
+      {
+        "note_id": "N006",
+        "scope": {
+          "parsed": "all",
+          "gold": "all",
+          "ok": true
+        },
+        "impact": {
+          "parsed": "no_increase",
+          "gold": "no_increase",
+          "ok": true
+        },
+        "start": {
+          "parsed": "2025-09-22",
+          "gold": "2025-09-22",
+          "ok": true
+        },
+        "end": {
+          "parsed": "2025-09-28",
+          "gold": "2025-09-28",
+          "ok": true
+        },
+        "magnitude": {
+          "parsed": "",
+          "gold": "",
+          "ok": true
+        }
+      },
+      {
+        "note_id": "N007",
+        "scope": {
+          "parsed": "route",
+          "gold": "route",
+          "ok": true
+        },
+        "impact": {
+          "parsed": "no_increase",
+          "gold": "no_increase",
+          "ok": true
+        },
+        "start": {
+          "parsed": "2024-05-20",
+          "gold": "2024-05-20",
+          "ok": true
+        },
+        "end": {
+          "parsed": "2024-05-26",
+          "gold": "2024-05-26",
+          "ok": true
+        },
+        "magnitude": {
+          "parsed": "",
+          "gold": "",
+          "ok": true
+        }
+      },
+      {
+        "note_id": "N008",
+        "scope": {
+          "parsed": "route",
+          "gold": "route",
+          "ok": true
+        },
+        "impact": {
+          "parsed": "no_increase",
+          "gold": "no_increase",
+          "ok": true
+        },
+        "start": {
+          "parsed": "2025-06-09",
+          "gold": "2025-06-09",
+          "ok": true
+        },
+        "end": {
+          "parsed": "2025-06-15",
+          "gold": "2025-06-15",
+          "ok": true
+        },
+        "magnitude": {
+          "parsed": "",
+          "gold": "",
+          "ok": true
+        }
+      },
+      {
+        "note_id": "N009",
+        "scope": {
+          "parsed": "route",
+          "gold": "route",
+          "ok": true
+        },
+        "impact": {
+          "parsed": "no_increase",
+          "gold": "no_increase",
+          "ok": true
+        },
+        "start": {
+          "parsed": "2025-03-17",
+          "gold": "2025-03-17",
+          "ok": true
+        },
+        "end": {
+          "parsed": "2025-03-23",
+          "gold": "2025-03-23",
+          "ok": true
+        },
+        "magnitude": {
+          "parsed": "",
+          "gold": "",
+          "ok": true
+        }
+      },
+      {
+        "note_id": "N010",
+        "scope": {
+          "parsed": "all",
+          "gold": "all",
+          "ok": true
+        },
+        "impact": {
+          "parsed": "no_increase",
+          "gold": "no_increase",
+          "ok": true
+        },
+        "start": {
+          "parsed": "2025-10-27",
+          "gold": "2025-10-27",
+          "ok": true
+        },
+        "end": {
+          "parsed": "2025-11-02",
+          "gold": "2025-11-02",
+          "ok": true
+        },
+        "magnitude": {
+          "parsed": "",
+          "gold": "",
+          "ok": true
+        }
+      }
+    ]
+  },
+  "impact_heldout": {
+    "description": "Impact classifier on 24 notes NOT in the dataset, written to probe phrasing the supplied notes do not use. Same author as the rules, so this is a robustness probe, not an unbiased accuracy estimate.",
+    "confusion_matrix_gold_by_pred": {
+      "increase": {
+        "increase": 8,
+        "no_increase": 0,
+        "unknown": 0
+      },
+      "no_increase": {
+        "increase": 0,
+        "no_increase": 11,
+        "unknown": 0
+      },
+      "unknown": {
+        "increase": 0,
+        "no_increase": 0,
+        "unknown": 5
+      }
+    },
+    "increase_vs_rest": {
+      "tp": 8,
+      "fp": 0,
+      "fn": 0,
+      "tn": 16,
+      "precision": 1.0,
+      "recall": 1.0,
+      "accuracy": 1.0,
+      "n": 24
+    },
+    "errors": []
+  },
+  "impact_heldout_first_pass": {
+    "description": "Impact classifier on 24 notes NOT in the dataset, written to probe phrasing the supplied notes do not use. Same author as the rules, so this is a robustness probe, not an unbiased accuracy estimate.",
+    "confusion_matrix_gold_by_pred": {
+      "increase": {
+        "increase": 7,
+        "no_increase": 0,
+        "unknown": 1
+      },
+      "no_increase": {
+        "increase": 0,
+        "no_increase": 6,
+        "unknown": 5
+      },
+      "unknown": {
+        "increase": 0,
+        "no_increase": 0,
+        "unknown": 5
+      }
+    },
+    "increase_vs_rest": {
+      "tp": 7,
+      "fp": 0,
+      "fn": 1,
+      "tn": 16,
+      "precision": 1.0,
+      "recall": 0.875,
+      "accuracy": 0.9583333333333334,
+      "n": 24
+    },
+    "errors": [
+      {
+        "note_id": "H03",
+        "note": "Toll charges on the expressway were hiked, adding to trip costs for all carriers.",
+        "gold": "increase",
+        "predicted": "unknown",
+        "matched_cue": "",
+        "consequence": "safe: note rejected (missed justification)"
+      },
+      {
+        "note_id": "H09",
+        "note": "Diesel became cheaper this month as global crude prices fell.",
+        "gold": "no_increase",
+        "predicted": "unknown",
+        "matched_cue": "",
+        "consequence": "safe: still rejected"
+      },
+      {
+        "note_id": "H10",
+        "note": "The new GST e-way bill rule caused paperwork delays but rates did not change.",
+        "gold": "no_increase",
+        "predicted": "unknown",
+        "matched_cue": "",
+        "consequence": "safe: still rejected"
+      },
+      {
+        "note_id": "H13",
+        "note": "Carriers absorbed the higher toll without passing it on to shippers.",
+        "gold": "no_increase",
+        "predicted": "unknown",
+        "matched_cue": "",
+        "consequence": "safe: still rejected"
+      },
+      {
+        "note_id": "H17",
+        "note": "Transporters reduced rates to win back volume.",
+        "gold": "no_increase",
+        "predicted": "unknown",
+        "matched_cue": "",
+        "consequence": "safe: still rejected"
+      },
+      {
+        "note_id": "H21",
+        "note": "There was no increase in freight rates after the policy change.",
+        "gold": "no_increase",
+        "predicted": "unknown",
+        "matched_cue": "",
+        "consequence": "safe: still rejected"
+      }
+    ],
+    "frozen_note": "First-pass result of the cue lexicon on the held-out notes, recorded BEFORE the lexicon was revised in response to these errors. This is the only genuinely held-out number."
+  },
+  "retrieval": {
+    "description": "Do the right notes reach the validator? Queries = the 19 numeric anomalies.",
+    "top_k_used_in_pipeline": 5,
+    "backends": {
+      "tfidf": {
+        "model": "sklearn TfidfVectorizer(word 1-2 grams, sublinear_tf)",
+        "gold_justification_ranks": [
+          1,
+          1,
+          2
+        ],
+        "gold_justification_recall@5": 1.0,
+        "gold_justification_recall@1": 0.6666666666666666,
+        "route_specific_note_pairs": 11,
+        "route_specific_recall@5": 1.0,
+        "route_specific_mrr": 0.8181818181818182
+      }
+    }
+  },
+  "end_to_end": {
+    "description": "Final verdicts vs gold for all numeric anomalies.",
+    "anomalies_scored": 19,
+    "flag_correct": 19,
+    "note_id_correct": 19,
+    "rows_flagged_or_justified_outside_gold": 0,
+    "justified_rows": 3,
+    "fabricated_justifications": [],
+    "rows": [
+      {
+        "route": "Ahmedabad-Mumbai",
+        "week_of": "2025-01-20",
+        "gold": "No (justified)",
+        "pred": "No (justified)",
+        "gold_note": "N002",
+        "pred_note": "N002",
+        "ok": true
+      },
+      {
+        "route": "Chennai-Bangalore",
+        "week_of": "2025-02-24",
+        "gold": "No (justified)",
+        "pred": "No (justified)",
+        "gold_note": "N001",
+        "pred_note": "N001",
+        "ok": true
+      },
+      {
+        "route": "Chennai-Bangalore",
+        "week_of": "2025-03-03",
+        "gold": "No (justified)",
+        "pred": "No (justified)",
+        "gold_note": "N001",
+        "pred_note": "N001",
+        "ok": true
+      },
+      {
+        "route": "Chennai-Bangalore",
+        "week_of": "2025-03-10",
+        "gold": "Yes",
+        "pred": "Yes",
+        "gold_note": "",
+        "pred_note": "",
+        "ok": true
+      },
+      {
+        "route": "Chennai-Bangalore",
+        "week_of": "2025-03-17",
+        "gold": "Yes",
+        "pred": "Yes",
+        "gold_note": "",
+        "pred_note": "",
+        "ok": true
+      },
+      {
+        "route": "Delhi-Jaipur",
+        "week_of": "2024-11-11",
+        "gold": "Yes",
+        "pred": "Yes",
+        "gold_note": "",
+        "pred_note": "",
+        "ok": true
+      },
+      {
+        "route": "Delhi-Jaipur",
+        "week_of": "2024-11-18",
+        "gold": "Yes",
+        "pred": "Yes",
+        "gold_note": "",
+        "pred_note": "",
+        "ok": true
+      },
+      {
+        "route": "Mumbai-Pune",
+        "week_of": "2025-06-23",
+        "gold": "Yes",
+        "pred": "Yes",
+        "gold_note": "",
+        "pred_note": "",
+        "ok": true
+      },
+      {
+        "route": "Mumbai-Pune",
+        "week_of": "2025-09-15",
+        "gold": "Yes",
+        "pred": "Yes",
+        "gold_note": "",
+        "pred_note": "",
+        "ok": true
+      },
+      {
+        "route": "Mumbai-Pune",
+        "week_of": "2025-10-06",
+        "gold": "Yes",
+        "pred": "Yes",
+        "gold_note": "",
+        "pred_note": "",
+        "ok": true
+      },
+      {
+        "route": "Mumbai-Pune",
+        "week_of": "2025-10-20",
+        "gold": "Yes",
+        "pred": "Yes",
+        "gold_note": "",
+        "pred_note": "",
+        "ok": true
+      },
+      {
+        "route": "Mumbai-Pune",
+        "week_of": "2025-10-27",
+        "gold": "Yes",
+        "pred": "Yes",
+        "gold_note": "",
+        "pred_note": "",
+        "ok": true
+      },
+      {
+        "route": "Mumbai-Pune",
+        "week_of": "2025-11-03",
+        "gold": "Yes",
+        "pred": "Yes",
+        "gold_note": "",
+        "pred_note": "",
+        "ok": true
+      },
+      {
+        "route": "Mumbai-Pune",
+        "week_of": "2025-11-17",
+        "gold": "Yes",
+        "pred": "Yes",
+        "gold_note": "",
+        "pred_note": "",
+        "ok": true
+      },
+      {
+        "route": "Mumbai-Pune",
+        "week_of": "2025-11-24",
+        "gold": "Yes",
+        "pred": "Yes",
+        "gold_note": "",
+        "pred_note": "",
+        "ok": true
+      },
+      {
+        "route": "Mumbai-Pune",
+        "week_of": "2025-12-01",
+        "gold": "Yes",
+        "pred": "Yes",
+        "gold_note": "",
+        "pred_note": "",
+        "ok": true
+      },
+      {
+        "route": "Mumbai-Pune",
+        "week_of": "2025-12-08",
+        "gold": "Yes",
+        "pred": "Yes",
+        "gold_note": "",
+        "pred_note": "",
+        "ok": true
+      },
+      {
+        "route": "Mumbai-Pune",
+        "week_of": "2025-12-15",
+        "gold": "Yes",
+        "pred": "Yes",
+        "gold_note": "",
+        "pred_note": "",
+        "ok": true
+      },
+      {
+        "route": "Mumbai-Pune",
+        "week_of": "2025-12-22",
+        "gold": "Yes",
+        "pred": "Yes",
+        "gold_note": "",
+        "pred_note": "",
+        "ok": true
+      }
+    ]
+  },
+  "threshold_sensitivity": {
+    "description": "How many route-weeks trip the numeric rule under other thresholds.",
+    "distribution": {
+      "own_history_pct_quantiles": {
+        "0.5": 0.22,
+        "0.9": 4.48,
+        "0.95": 5.75,
+        "0.99": 11.15
+      },
+      "peer_pct_quantiles": {
+        "0.5": -0.38,
+        "0.9": 10.55,
+        "0.95": 13.43,
+        "0.99": 31.88
+      },
+      "own_history_pct_std": 4.25
+    },
+    "grid": [
+      {
+        "own_pct": 10,
+        "peer_pct": 15,
+        "numeric_anomalies": 27,
+        "by_route": {
+          "Ahmedabad-Mumbai": 1,
+          "Chennai-Bangalore": 4,
+          "Delhi-Jaipur": 2,
+          "Mumbai-Delhi": 1,
+          "Mumbai-Pune": 19
+        }
+      },
+      {
+        "own_pct": 10,
+        "peer_pct": 20,
+        "numeric_anomalies": 20,
+        "by_route": {
+          "Ahmedabad-Mumbai": 1,
+          "Chennai-Bangalore": 4,
+          "Delhi-Jaipur": 2,
+          "Mumbai-Delhi": 1,
+          "Mumbai-Pune": 12
+        }
+      },
+      {
+        "own_pct": 10,
+        "peer_pct": 25,
+        "numeric_anomalies": 14,
+        "by_route": {
+          "Ahmedabad-Mumbai": 1,
+          "Chennai-Bangalore": 4,
+          "Delhi-Jaipur": 2,
+          "Mumbai-Delhi": 1,
+          "Mumbai-Pune": 6
+        }
+      },
+      {
+        "own_pct": 10,
+        "peer_pct": 30,
+        "numeric_anomalies": 13,
+        "by_route": {
+          "Ahmedabad-Mumbai": 1,
+          "Chennai-Bangalore": 4,
+          "Delhi-Jaipur": 2,
+          "Mumbai-Delhi": 1,
+          "Mumbai-Pune": 5
+        }
+      },
+      {
+        "own_pct": 15,
+        "peer_pct": 15,
+        "numeric_anomalies": 26,
+        "by_route": {
+          "Ahmedabad-Mumbai": 1,
+          "Chennai-Bangalore": 4,
+          "Delhi-Jaipur": 2,
+          "Mumbai-Pune": 19
+        }
+      },
+      {
+        "own_pct": 15,
+        "peer_pct": 20,
+        "numeric_anomalies": 19,
+        "by_route": {
+          "Ahmedabad-Mumbai": 1,
+          "Chennai-Bangalore": 4,
+          "Delhi-Jaipur": 2,
+          "Mumbai-Pune": 12
+        }
+      },
+      {
+        "own_pct": 15,
+        "peer_pct": 25,
+        "numeric_anomalies": 13,
+        "by_route": {
+          "Ahmedabad-Mumbai": 1,
+          "Chennai-Bangalore": 4,
+          "Delhi-Jaipur": 2,
+          "Mumbai-Pune": 6
+        }
+      },
+      {
+        "own_pct": 15,
+        "peer_pct": 30,
+        "numeric_anomalies": 12,
+        "by_route": {
+          "Ahmedabad-Mumbai": 1,
+          "Chennai-Bangalore": 4,
+          "Delhi-Jaipur": 2,
+          "Mumbai-Pune": 5
+        }
+      },
+      {
+        "own_pct": 20,
+        "peer_pct": 15,
+        "numeric_anomalies": 26,
+        "by_route": {
+          "Ahmedabad-Mumbai": 1,
+          "Chennai-Bangalore": 4,
+          "Delhi-Jaipur": 2,
+          "Mumbai-Pune": 19
+        }
+      },
+      {
+        "own_pct": 20,
+        "peer_pct": 20,
+        "numeric_anomalies": 19,
+        "by_route": {
+          "Ahmedabad-Mumbai": 1,
+          "Chennai-Bangalore": 4,
+          "Delhi-Jaipur": 2,
+          "Mumbai-Pune": 12
+        }
+      },
+      {
+        "own_pct": 20,
+        "peer_pct": 25,
+        "numeric_anomalies": 13,
+        "by_route": {
+          "Ahmedabad-Mumbai": 1,
+          "Chennai-Bangalore": 4,
+          "Delhi-Jaipur": 2,
+          "Mumbai-Pune": 6
+        }
+      },
+      {
+        "own_pct": 20,
+        "peer_pct": 30,
+        "numeric_anomalies": 12,
+        "by_route": {
+          "Ahmedabad-Mumbai": 1,
+          "Chennai-Bangalore": 4,
+          "Delhi-Jaipur": 2,
+          "Mumbai-Pune": 5
+        }
+      },
+      {
+        "own_pct": 25,
+        "peer_pct": 15,
+        "numeric_anomalies": 26,
+        "by_route": {
+          "Ahmedabad-Mumbai": 1,
+          "Chennai-Bangalore": 4,
+          "Delhi-Jaipur": 2,
+          "Mumbai-Pune": 19
+        }
+      },
+      {
+        "own_pct": 25,
+        "peer_pct": 20,
+        "numeric_anomalies": 19,
+        "by_route": {
+          "Ahmedabad-Mumbai": 1,
+          "Chennai-Bangalore": 4,
+          "Delhi-Jaipur": 2,
+          "Mumbai-Pune": 12
+        }
+      },
+      {
+        "own_pct": 25,
+        "peer_pct": 25,
+        "numeric_anomalies": 13,
+        "by_route": {
+          "Ahmedabad-Mumbai": 1,
+          "Chennai-Bangalore": 4,
+          "Delhi-Jaipur": 2,
+          "Mumbai-Pune": 6
+        }
+      },
+      {
+        "own_pct": 25,
+        "peer_pct": 30,
+        "numeric_anomalies": 12,
+        "by_route": {
+          "Ahmedabad-Mumbai": 1,
+          "Chennai-Bangalore": 4,
+          "Delhi-Jaipur": 2,
+          "Mumbai-Pune": 5
+        }
+      }
+    ]
+  }
+}
