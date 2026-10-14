@@ -245,3 +245,5 @@ Note on the committed outputs: they were produced with the TF-IDF retriever, bec
 - Scale: the weekly maths is a group-by plus a rolling window, and ran on 294k shipments in
   2 seconds. Retrieval only runs for flagged weeks (about 3% here). With thousands of notes I'd
   move them to a vector store and filter by route and date first.
+
+  platform link: https://freighttiger-ai.streamlit.app/
