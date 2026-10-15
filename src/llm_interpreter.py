@@ -28,7 +28,8 @@ from .assistant import MONTHS, ROUTE_TYPES
 
 log = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "gemini-3.8-flash"  # override with GEMINI_MODEL
+DEFAULT_MODEL = "gemini-3.5-flash-lite"  # override with GEMINI_MODEL
+FALLBACK_MODEL = "gemini-3.8-flash"  # used when the first model is overloaded; GEMINI_FALLBACK_MODEL
 ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
 INTENTS = {
@@ -171,40 +172,38 @@ def canonical_question(parsed: dict, routes: list[str], note_ids: list[str]) -> 
 
 
 class GeminiInterpreter:
+    """Calls Gemini with a fallback model. `last_error` says why the latest question got no answer."""
+
     def __init__(self, api_key: str, routes: list[str], note_ids: list[str], first_week: str, last_week: str,
-                 model: str = DEFAULT_MODEL, timeout: float = 30.0, note_summaries: list[str] | None = None,
-                 thinking_level: str | None = "low"):
-        # thinking_level "low": about 6 s per question on gemini-3.8-flash, instead of about 25 s by default.
-        # Set None for models without thinking levels.
-        self.api_key, self.model, self.timeout, self.thinking_level = api_key, model, timeout, thinking_level
+                 model: str = DEFAULT_MODEL, fallback_model: str | None = FALLBACK_MODEL, timeout: float = 20.0,
+                 note_summaries: list[str] | None = None, thinking_level: str | None = "low"):
+        # thinking_level "low" keeps answers to a few seconds (default thinking took ~25 s on gemini-3.8-flash).
+        self.api_key, self.timeout, self.thinking_level = api_key, timeout, thinking_level
+        self.models = [m for m in dict.fromkeys([model, fallback_model]) if m]
         self.routes, self.note_ids = sorted(routes), sorted(note_ids)
         self.system = system_prompt(self.routes, self.note_ids, first_week, last_week, note_summaries)
         self.schema = response_schema(self.routes, self.note_ids)
         self.usage = UsageLog()
+        self.last_error: str | None = None
         # Streamlit reruns the script on every widget change; never pay twice for the same question.
         self._cache: dict[str, str | None] = {}
 
-    def _post(self, body: dict) -> dict:
+    def _post(self, body: dict, model: str) -> dict:
         req = urllib.request.Request(
-            ENDPOINT.format(model=self.model), data=json.dumps(body).encode("utf-8"), method="POST",
+            ENDPOINT.format(model=model), data=json.dumps(body).encode("utf-8"), method="POST",
             headers={"Content-Type": "application/json", "x-goog-api-key": self.api_key})
-        for attempt in range(2):  # one retry when the service is temporarily overloaded
-            try:
-                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                    return json.loads(resp.read().decode("utf-8"))
-            except urllib.error.HTTPError as exc:
-                if exc.code not in (500, 502, 503, 504) or attempt:
-                    raise
-                time.sleep(2)
+        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            return json.loads(resp.read().decode("utf-8"))
 
     def interpret(self, question: str) -> str | None:
-        """Canonical question for the rule-based assistant, or None (unsupported or any failure)."""
+        """Canonical question for the rule-based assistant, or None. On None, `last_error` is set if the
+        call failed (overload, quota, network) and left None if Gemini judged the question unanswerable."""
         key = " ".join(question.lower().split())
         if key in self._cache:
+            self.last_error = None
             return self._cache[key]
-        failures = self.usage.failures
         result = self._interpret(question)
-        if self.usage.failures == failures:  # don't remember outages: the same question may work later
+        if self.last_error is None:  # don't remember outages: the same question may work later
             self._cache[key] = result
         return result
 
@@ -217,17 +216,44 @@ class GeminiInterpreter:
         }
         if self.thinking_level:
             body["generationConfig"]["thinkingConfig"] = {"thinkingLevel": self.thinking_level}
+        # Each model gets two tries for overload/rate-limit errors; other errors move on to the next model.
+        for model in self.models:
+            for attempt in range(2):
+                try:
+                    data = self._post(body, model)
+                    parsed = json.loads(data["candidates"][0]["content"]["parts"][0]["text"])
+                except (urllib.error.URLError, TimeoutError, KeyError, IndexError, ValueError, OSError) as exc:
+                    self.last_error = _describe(exc)
+                    log.warning("Gemini (%s) failed: %s", model, self.last_error)
+                    self.usage.record(question, None, ok=False, detail=f"{model}: {self.last_error}")
+                    if isinstance(exc, urllib.error.HTTPError) and exc.code in RETRYABLE and attempt == 0:
+                        time.sleep(2)
+                        continue
+                    break
+                self.last_error = None
+                canonical = canonical_question(parsed, self.routes, self.note_ids)
+                self.usage.record(question, data.get("usageMetadata"), ok=True,
+                                  detail=f"{model}: {parsed.get('intent')} -> {canonical or 'no answerable question'}")
+                return canonical
+        return None
+
+
+RETRYABLE = (429, 500, 502, 503, 504)
+
+
+def _describe(exc: Exception) -> str:
+    """Short reason for logs and the UI. Uses Google's error message only (the request, which carries
+    the key in a header, is never included)."""
+    if isinstance(exc, urllib.error.HTTPError):
+        reason = {429: "rate limit or free-tier quota reached", 503: "Gemini is overloaded right now",
+                  500: "Gemini server error", 502: "Gemini server error", 504: "Gemini timed out",
+                  400: "request rejected", 401: "API key not accepted", 403: "API key not allowed",
+                  404: "model not available"}.get(exc.code, "request failed")
         try:
-            data = self._post(body)
-            parsed = json.loads(data["candidates"][0]["content"]["parts"][0]["text"])
-        except (urllib.error.URLError, TimeoutError, KeyError, IndexError, ValueError, OSError) as exc:
-            detail = f"{type(exc).__name__}: {exc}"
-            if isinstance(exc, urllib.error.HTTPError):
-                detail = f"HTTP {exc.code}"  # never log the request (it carries the key header)
-            log.warning("Gemini interpretation failed (%s); using the built-in parser only.", detail)
-            self.usage.record(question, None, ok=False, detail=detail)
-            return None
-        canonical = canonical_question(parsed, self.routes, self.note_ids)
-        self.usage.record(question, data.get("usageMetadata"), ok=True,
-                          detail=f"{parsed.get('intent')} -> {canonical or 'no answerable question'}")
-        return canonical
+            message = json.loads(exc.read().decode("utf-8"))["error"]["message"].strip()
+        except Exception:
+            message = ""
+        return f"HTTP {exc.code}, {reason}" + (f": {message[:160]}" if message else "")
+    if isinstance(exc, (TimeoutError, urllib.error.URLError)) or "timed out" in str(exc):
+        return "no response from Gemini (network or timeout)"
+    return f"unexpected reply ({type(exc).__name__})"

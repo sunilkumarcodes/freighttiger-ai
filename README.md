@@ -16,7 +16,7 @@ Python 3.12 or newer is needed (numpy 2.5 and pandas 3).
 ```
 pip install -r requirements.txt           # or requirements-core.txt: no torch/dashboard, TF-IDF only
 python run.py                              # writes outputs/final_output.csv and the logs
-pytest -q                                  # 174 tests
+pytest -q                                  # 177 tests
 python scripts/evaluate.py                 # scores against the labelled sets in eval/
 python scripts/reproducibility_check.py    # 3 separate runs, compares hashes
 streamlit run app.py                       # dashboard
@@ -185,7 +185,8 @@ route-weeks, the parsed notes and the configured method. It understands:
 A question it can't match gets a list of example questions, never a guess.
 
 **Optional Gemini fallback** (`src/llm_interpreter.py`). If `GEMINI_API_KEY` is set, a question
-the rules can't match is sent to Gemini (`gemini-3.8-flash`, temperature 0, low thinking). Gemini
+the rules can't match is sent to Gemini (`gemini-3.5-flash-lite`, temperature 0, low thinking; if it
+is overloaded or rate-limited, it is retried once and then `gemini-3.8-flash` is tried). Gemini
 only classifies it, as JSON restricted by a schema to the assistant's question types and to the
 real route names and note ids, plus month, year and date. That becomes a standard question
 ("did the floods down south matter?" becomes "Why did Chennai-Bangalore get pricier?"), which
@@ -197,13 +198,14 @@ To turn it on, set the key as a Streamlit secret (`.streamlit/secrets.toml`, whi
 git-ignored, or the app's Secrets settings on Streamlit Cloud) or as an environment variable:
 
     GEMINI_API_KEY = "your-key"
-    GEMINI_MODEL = "gemini-3.8-flash"   # optional
+    GEMINI_MODEL = "gemini-3.5-flash-lite"         # optional
+    GEMINI_FALLBACK_MODEL = "gemini-3.8-flash"     # optional
 
 Never commit the key.
 
 ## How I checked it
 
-- **Tests:** `pytest -q` runs 174 tests. They cover:
+- **Tests:** `pytest -q` runs 177 tests. They cover:
   - week boundaries and the cost formula
   - the history window, including the case with fewer than 8 weeks
   - leaving the route out of its peer average

@@ -79,7 +79,7 @@ def _reply(obj, usage=None):
 def test_interpret_success_logs_tokens_and_caches(monkeypatch):
     calls = []
 
-    def responder(body):
+    def responder(body, model):
         calls.append(body)
         assert body["generationConfig"]["temperature"] == 0
         return _reply(parsed(intent="unexplained", routes=["Mumbai-Pune"]))
@@ -91,23 +91,64 @@ def test_interpret_success_logs_tokens_and_caches(monkeypatch):
     assert (g.usage.calls, g.usage.input_tokens, g.usage.output_tokens) == (1, 400, 40)
 
 
-@pytest.mark.parametrize("error", [
-    urllib.error.HTTPError("u", 429, "quota", {}, None), urllib.error.URLError("offline"), TimeoutError(),
+def _http_error(code, message="boom"):
+    import io
+    body = io.BytesIO(json.dumps({"error": {"message": message}}).encode())
+    return urllib.error.HTTPError("u", code, "err", {}, body)
+
+
+@pytest.fixture(autouse=True)
+def no_sleep(monkeypatch):
+    monkeypatch.setattr("src.llm_interpreter.time.sleep", lambda s: None)
+
+
+@pytest.mark.parametrize("make_error, reason", [
+    (lambda: _http_error(429), "quota"), (lambda: _http_error(503), "overloaded"),
+    (lambda: urllib.error.URLError("offline"), "no response"), (lambda: TimeoutError(), "no response"),
 ])
-def test_interpret_failure_returns_none_and_is_logged(monkeypatch, error):
-    def responder(body):
-        raise error
+def test_failure_on_every_model_returns_none_with_reason(monkeypatch, make_error, reason):
+    tried = []
+
+    def responder(body, model):
+        tried.append(model)
+        raise make_error()
 
     g = _interpreter(monkeypatch, responder)
     assert g.interpret("anything") is None
-    assert g.usage.failures == 1 and "test-key" not in json.dumps(g.usage.events)
+    assert reason in g.last_error and set(tried) == set(g.models)  # backup model was tried too
+    assert "test-key" not in json.dumps(g.usage.events)
+    # outages are not cached: asking again calls Gemini again
+    n = len(tried)
+    g.interpret("anything")
+    assert len(tried) > n
+
+
+def test_overloaded_model_falls_back_to_backup(monkeypatch):
+    def responder(body, model):
+        if model == g.models[0]:
+            raise _http_error(503, "The model is overloaded.")
+        return _reply(parsed(intent="note_list"))
+
+    g = _interpreter(monkeypatch, responder)
+    assert g.interpret("what notes do you have") == "What notes are there?"
+    assert g.last_error is None and g.usage.failures == 2  # two tries on the first model, then the backup
+
+
+def test_google_error_message_is_shown(monkeypatch):
+    def responder(body, model):
+        raise _http_error(403, "Method doesn't allow unregistered callers.")
+
+    g = _interpreter(monkeypatch, responder)
+    assert g.interpret("anything") is None
+    assert "HTTP 403" in g.last_error and "unregistered callers" in g.last_error
 
 
 def test_malformed_reply_returns_none(monkeypatch):
-    g = _interpreter(monkeypatch, lambda body: {"candidates": [{"content": {"parts": [{"text": "not json"}]}}]})
-    assert g.interpret("anything") is None and g.usage.failures == 1
+    g = _interpreter(monkeypatch, lambda body, model: {"candidates": [{"content": {"parts": [{"text": "not json"}]}}]})
+    assert g.interpret("anything") is None and "unexpected reply" in g.last_error
 
 
 def test_off_topic_question_stays_unanswered(monkeypatch):
-    g = _interpreter(monkeypatch, lambda body: _reply(parsed(intent="unsupported")))
-    assert g.interpret("What will diesel cost next year?") is None and g.usage.failures == 0
+    g = _interpreter(monkeypatch, lambda body, model: _reply(parsed(intent="unsupported")))
+    assert g.interpret("What will diesel cost next year?") is None and g.last_error is None
+    assert g.usage.failures == 0
