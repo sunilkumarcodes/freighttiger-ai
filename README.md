@@ -16,7 +16,7 @@ Python 3.12 or newer is needed (numpy 2.5 and pandas 3).
 ```
 pip install -r requirements.txt           # or requirements-core.txt: no torch/dashboard, TF-IDF only
 python run.py                              # writes outputs/final_output.csv and the logs
-pytest -q                                  # 177 tests
+pytest -q                                  # 162 tests
 python scripts/evaluate.py                 # scores against the labelled sets in eval/
 python scripts/reproducibility_check.py    # 3 separate runs, compares hashes
 streamlit run app.py                       # dashboard
@@ -184,15 +184,29 @@ route-weeks, the parsed notes and the configured method. It understands:
 
 A question it can't match gets a list of example questions, never a guess.
 
-**Optional Gemini fallback** (`src/llm_interpreter.py`). If `GEMINI_API_KEY` is set, a question
-the rules can't match is sent to Gemini (`gemini-3.5-flash-lite`, temperature 0, low thinking; if it
-is overloaded or rate-limited, it is retried once and then `gemini-3.8-flash` is tried). Gemini
-only classifies it, as JSON restricted by a schema to the assistant's question types and to the
-real route names and note ids, plus month, year and date. That becomes a standard question
-("did the floods down south matter?" becomes "Why did Chennai-Bangalore get pricier?"), which
-the same rule-based code answers from the results. Gemini can misread a question, but it can't
-put a fact into an answer. Without a key, or on any error, the assistant answers with the rules
-alone. Questions the rules understand never reach Gemini.
+**Optional Gemini answers** (`src/llm_assistant.py`). The rules only cover fixed question types,
+so with `GEMINI_API_KEY` set, Gemini answers any question: "Which month had the most flagged weeks
+on Mumbai-Pune?", "Why wasn't the diesel rise used to justify anything?". It answers from a data
+pack built from this run's results and nothing else. The pack holds:
+
+- the method
+- every note, with its window and the weeks it justifies
+- a summary per route
+- monthly averages and counts
+- every flagged or justified week, with its reason
+- every route-week's cost
+- the built-in answer, when the rules recognise the question
+
+The model is `gemini-3.5-flash-lite` at temperature 0 with low thinking. If it is overloaded or
+rate-limited it is retried once, then `gemini-3.8-flash` is tried.
+
+Before an answer is shown, it is checked: every decimal figure, ISO date, route and note id in it
+must appear in the data pack (a figure may be rounded to 1 decimal). If anything doesn't, the
+answer is withheld and the built-in answer is shown, with the reason. So Gemini can phrase,
+select and summarise, but a figure, date, route or note it made up never reaches the user. Plain
+counts aren't checked mechanically; the pack lists counts per route and per month so the model
+doesn't have to compute them. Questions outside the data ("What will diesel cost next year?")
+get "this analysis doesn't cover it". Without a key, or on any error, the built-in rules answer.
 
 To turn it on, set the key as a Streamlit secret (`.streamlit/secrets.toml`, which is
 git-ignored, or the app's Secrets settings on Streamlit Cloud) or as an environment variable:
@@ -205,7 +219,7 @@ Never commit the key.
 
 ## How I checked it
 
-- **Tests:** `pytest -q` runs 177 tests. They cover:
+- **Tests:** `pytest -q` runs 162 tests. They cover:
   - week boundaries and the cost formula
   - the history window, including the case with fewer than 8 weeks
   - leaving the route out of its peer average
@@ -271,11 +285,11 @@ by note id. Input hashes ignore line endings, since git converts them on Windows
 locally: 10 notes plus one query per flagged week (19), in a single batch.
 
 That covers the full run over the shipment file. The only LLM use anywhere is the optional Gemini
-fallback in the dashboard: one call per question the rules can't match, at about 900 input and
-140 output tokens (measured: 4 questions, 3,573 input and 569 output tokens, including thinking
-tokens). Repeated questions are cached. The sidebar shows the running count of calls and tokens.
-On Gemini's free tier this costs nothing; at paid rates, multiply these counts by Google's
-published per-token price.
+assistant in the dashboard: one call per question asked, at about 23,000 input tokens (the data
+pack) and under 100 output tokens. Measured: 5 questions, 115,243 input and 319 output tokens
+including thinking tokens, 1.4 to 2.9 s each. Repeated questions are cached, and the sidebar shows
+the running count of calls and tokens. On Gemini's free tier this costs nothing; at paid rates,
+multiply these counts by Google's published per-token price.
 
 <!-- BACKEND:START -->
 The committed outputs use `sentence-transformers/all-MiniLM-L6-v2` running locally on CPU. A full run embeds 10 notes and 19 queries (935 tokens by the model's tokenizer), with no API calls.

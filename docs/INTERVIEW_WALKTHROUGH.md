@@ -47,7 +47,7 @@ and is nationwide, but says costs were absorbed, so it is rejected. N003 diesel 
 it's nationwide, so it can't explain a gap vs peers.
 
 **8:00 – Evidence (1 min).**
-* 177 tests pass, including adversarial note phrasings found in a self-audit.
+* 162 tests pass, including adversarial note phrasings found in a self-audit.
 * Eval: 19/19 verdicts against gold labels written before coding, 30/30 labelled pairs, 0
   fabricated justifications.
 * An honest weakness: the held-out phrasing probe scored 18/24 on the first pass, and every

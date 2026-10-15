@@ -16,7 +16,7 @@ import streamlit as st
 
 from src.assistant import answer
 from src.config import DEFAULT_CONFIG, FLAG_JUSTIFIED, FLAG_YES, OUTPUT_COLUMNS
-from src.llm_interpreter import DEFAULT_MODEL, FALLBACK_MODEL, GeminiInterpreter
+from src.llm_assistant import DEFAULT_MODEL, FALLBACK_MODEL, GeminiAssistant, build_context
 from src.pipeline import run_pipeline, submission_csv_bytes
 
 st.set_page_config(page_title="FreightTiger - AI Freight Cost Intelligence", layout="wide")
@@ -78,10 +78,15 @@ def secret_names() -> list[str]:
 
 
 @st.cache_resource(show_spinner=False)
-def gemini(api_key: str, model: str, fallback: str, routes: tuple, note_ids: tuple, first: str, last: str,
-           summaries: tuple):
-    return GeminiInterpreter(api_key, list(routes), list(note_ids), first, last, model=model,
-                             fallback_model=fallback, note_summaries=list(summaries))
+def gemini(api_key: str, model: str, fallback: str, routes: tuple, note_ids: tuple):
+    return GeminiAssistant(api_key, list(routes), list(note_ids), model=model, fallback_model=fallback)
+
+
+@st.cache_resource(show_spinner=False)
+def data_pack(retriever: str) -> str:
+    """The run's results as text for Gemini (built once per retrieval backend)."""
+    r = load(retriever)
+    return build_context(r.output, r.audit, r.cards, DEFAULT_CONFIG)
 
 
 with st.sidebar:
@@ -100,18 +105,17 @@ with st.sidebar:
     gemini_key = setting("GEMINI_API_KEY", aliases=("GOOGLE_API_KEY", "GEMINI_KEY", "API_KEY"))
     gemini_model = setting("GEMINI_MODEL", DEFAULT_MODEL)
     gemini_fallback = setting("GEMINI_FALLBACK_MODEL", FALLBACK_MODEL)
-    interpreter = None
+    llm = None
     if gemini_key:
-        interpreter = gemini(gemini_key, gemini_model, gemini_fallback, tuple(sorted(run.output["route"].unique())),
-                             tuple(sorted(run.cards)), run.output["week_of"].min(), run.output["week_of"].max(),
-                             tuple(f"{c.note_id} ({c.date:%Y-%m-%d}, {c.applies_to}): {c.summary}"
-                                   for c in sorted(run.cards.values(), key=lambda c: c.note_id)))
-        u = interpreter.usage
-        st.caption(f"Question understanding: built-in rules, with Gemini (`{gemini_model}`, backup `{gemini_fallback}`) for questions the "
-                   f"rules can't match.  \nGemini calls: {u.calls} ({u.failures} failed) · input tokens "
-                   f"{u.input_tokens} · output tokens {u.output_tokens}")
+        llm = gemini(gemini_key, gemini_model, gemini_fallback, tuple(sorted(run.output["route"].unique())),
+                     tuple(sorted(run.cards)))
+        u = llm.usage
+        st.caption(f"Assistant: Gemini (`{gemini_model}`, backup `{gemini_fallback}`) answers from this run's "
+                   f"results, checked against the data; built-in rules if Gemini fails.  \nGemini calls: "
+                   f"{u.calls} ({u.failures} failed) · input tokens {u.input_tokens} · output tokens "
+                   f"{u.output_tokens}")
     else:
-        st.caption("Question understanding: built-in rules only (set GEMINI_API_KEY to add Gemini).")
+        st.caption("Assistant: built-in rules only (set GEMINI_API_KEY to add Gemini).")
         if SECRETS_ERROR:
             st.error(f"The app's Secrets could not be read ({SECRETS_ERROR}). In Settings → Secrets, use "
                      f'exactly: GEMINI_API_KEY = "your-key" (with the quotes), save, then reboot.')
@@ -218,8 +222,9 @@ with tab_explain:
 
 # ---------------------------------------------------------------- Ask
 with tab_ask:
-    st.caption("Answers are assembled only from this run's computed results and validated notes (no LLM, "
-               "no API). If a question can't be grounded, the assistant says so.")
+    st.caption("Answers come only from this run's computed results and validated notes. With a Gemini key, "
+               "Gemini writes the answer and every figure, date, route and note id in it is checked against "
+               "the data before it is shown; otherwise the built-in rules answer.")
     examples = ["Why did Chennai-Bangalore get pricier in March 2025?",
                 "Why is Mumbai-Pune flagged?",
                 "Which weeks were justified by a note?",
@@ -240,29 +245,33 @@ with tab_ask:
     for i, e in enumerate(examples):
         cols[i % 4].button(e, key=f"example_{i}", on_click=_use_example, args=(e,))
     if q:
-        res = answer(q, out, run.audit, run.cards)
-        if not res.matched and interpreter is not None:
-            # Gemini only rewrites the question into one the rules understand; the answer still comes
-            # from this run's results, so it cannot contain an invented fact.
-            with st.spinner("Asking Gemini to interpret the question..."):
-                canonical = interpreter.interpret(q)
-            retry = answer(canonical, out, run.audit, run.cards) if canonical else None
-            if retry is not None and retry.matched:
-                res = retry
-                st.caption(f"Understood with Gemini as: *{canonical}*")
-            elif canonical is None and interpreter.last_error:
-                err = interpreter.last_error
+        res = answer(q, out, run.audit, run.cards)  # built-in rules: always computed, also the fallback
+        show_builtin = True
+        if llm is not None:
+            with st.spinner("Gemini is answering from this run's results..."):
+                reply = llm.answer(q, data_pack(retriever), res.text if res.matched else None)
+            if reply.text:
+                show_builtin = False
+                st.markdown(reply.text.replace("$", "\\$"))  # a "$" would otherwise start LaTeX
+                st.caption("Answered by Gemini from this run's results. Every figure, date, route and note id "
+                           "in it was checked against the data.")
+                if not res.rows.empty:
+                    with st.expander("Rows behind this answer (from the built-in rules)"):
+                        st.dataframe(res.rows[OUTPUT_COLUMNS], hide_index=True, width="stretch")
+            elif reply.error:
                 hint = ("Check the GEMINI_API_KEY secret (Manage app → Settings → Secrets), then reboot."
-                        if "key" in err.lower() else "Please try again in a moment.")
-                st.warning(f"Gemini couldn't be used ({err}). Answered with the built-in rules only. {hint}")
+                        if "key" in reply.error.lower() else "Please try again in a moment.")
+                st.warning(f"Gemini couldn't be used ({reply.error}). Showing the built-in answer. {hint}")
             else:
-                st.caption("Gemini read this as a question the analysis can't answer.")
+                st.caption("Gemini's answer was not shown because it mentioned something that is not in the "
+                           f"data ({'; '.join(reply.problems)}). Showing the built-in answer instead.")
         elif not res.matched:
             st.caption("Gemini is off: this app has no GEMINI_API_KEY secret, so only the built-in rules were "
                        "used. Add it under Manage app → Settings → Secrets, then reboot the app.")
-        st.markdown(res.text.replace("\n", "  \n"))
-        if not res.rows.empty:
-            st.dataframe(res.rows[OUTPUT_COLUMNS], hide_index=True, width="stretch")
+        if show_builtin:
+            st.markdown(res.text.replace("\n", "  \n"))
+            if not res.rows.empty:
+                st.dataframe(res.rows[OUTPUT_COLUMNS], hide_index=True, width="stretch")
 
 # ---------------------------------------------------------------- Data & export
 with tab_data:
