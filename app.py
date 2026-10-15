@@ -35,13 +35,46 @@ def csv_bytes(df: pd.DataFrame) -> bytes:
     return df.to_csv(index=False, lineterminator="\n").encode("utf-8")
 
 
-def setting(name: str, default: str | None = None) -> str | None:
-    """Streamlit secret (deployed app) or environment variable (local). Never hard-code keys."""
+SECRETS_ERROR: str | None = None  # why Streamlit secrets couldn't be read, shown in the sidebar
+
+
+def _secrets() -> dict:
+    """All Streamlit secrets as a plain dict ({} locally without secrets.toml, or if they don't parse)."""
+    global SECRETS_ERROR
     try:
-        value = st.secrets.get(name)
-    except Exception:  # no secrets.toml
-        value = None
-    return value or os.environ.get(name) or default
+        return {k: (dict(v.items()) if hasattr(v, "items") else v) for k, v in st.secrets.items()}
+    except Exception as exc:  # e.g. invalid TOML in the app's Secrets box
+        if isinstance(exc, FileNotFoundError) or "NotFound" in type(exc).__name__:
+            return {}  # no secrets file: normal when running locally
+        SECRETS_ERROR = f"{type(exc).__name__}: {str(exc)[:120]}"
+        return {}
+
+
+def setting(name: str, default: str | None = None, aliases: tuple[str, ...] = ()) -> str | None:
+    """Streamlit secret (deployed app) or environment variable (local). Never hard-code keys.
+
+    Forgiving about how the secret was entered: any letter case, an alias, or nested under a
+    [section] heading."""
+    wanted = {n.lower() for n in (name, *aliases)}
+    secrets = _secrets()
+    sections = [secrets] + [v for v in secrets.values() if isinstance(v, dict)]
+    for section in sections:
+        for key, value in section.items():
+            if key.strip().lower() in wanted and isinstance(value, str) and value.strip():
+                return value.strip()
+    for n in (name, *aliases):
+        if os.environ.get(n, "").strip():
+            return os.environ[n].strip()
+    return default
+
+
+def secret_names() -> list[str]:
+    """Names (never values) of the secrets the app can see, to help diagnose a missing key."""
+    secrets = _secrets()
+    names = []
+    for key, value in secrets.items():
+        names += [f"[{key}] {k}" for k in value] if isinstance(value, dict) else [key]
+    return names
 
 
 @st.cache_resource(show_spinner=False)
@@ -64,7 +97,8 @@ with st.sidebar:
     st.caption(f"Thresholds: ΔH ≥ {DEFAULT_CONFIG.own_history_threshold_pct:g}% or "
                f"ΔP ≥ {DEFAULT_CONFIG.peer_threshold_pct:g}%, with ΔH > 0")
 
-    gemini_key, gemini_model = setting("GEMINI_API_KEY"), setting("GEMINI_MODEL", DEFAULT_MODEL)
+    gemini_key = setting("GEMINI_API_KEY", aliases=("GOOGLE_API_KEY", "GEMINI_KEY", "API_KEY"))
+    gemini_model = setting("GEMINI_MODEL", DEFAULT_MODEL)
     gemini_fallback = setting("GEMINI_FALLBACK_MODEL", FALLBACK_MODEL)
     interpreter = None
     if gemini_key:
@@ -78,6 +112,14 @@ with st.sidebar:
                    f"{u.input_tokens} · output tokens {u.output_tokens}")
     else:
         st.caption("Question understanding: built-in rules only (set GEMINI_API_KEY to add Gemini).")
+        if SECRETS_ERROR:
+            st.error(f"The app's Secrets could not be read ({SECRETS_ERROR}). In Settings → Secrets, use "
+                     f'exactly: GEMINI_API_KEY = "your-key" (with the quotes), save, then reboot.')
+        elif secret_names():
+            st.info("No Gemini key among the secrets this app sees: " + ", ".join(secret_names())
+                    + '. Name it GEMINI_API_KEY = "your-key", save, then reboot.')
+        else:
+            st.info("This app sees no secrets at all. If you added one, save it again and reboot the app.")
 
 out, audit = run.output, run.audit
 audit = audit.assign(week=pd.to_datetime(audit["week_of"]))
@@ -209,8 +251,10 @@ with tab_ask:
                 res = retry
                 st.caption(f"Understood with Gemini as: *{canonical}*")
             elif canonical is None and interpreter.last_error:
-                st.warning(f"Gemini couldn't be reached ({interpreter.last_error}). Answered with the built-in "
-                           f"rules only; please try again in a moment.")
+                err = interpreter.last_error
+                hint = ("Check the GEMINI_API_KEY secret (Manage app → Settings → Secrets), then reboot."
+                        if "key" in err.lower() else "Please try again in a moment.")
+                st.warning(f"Gemini couldn't be used ({err}). Answered with the built-in rules only. {hint}")
             else:
                 st.caption("Gemini read this as a question the analysis can't answer.")
         elif not res.matched:
