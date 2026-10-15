@@ -16,7 +16,7 @@ Python 3.12 or newer is needed (numpy 2.5 and pandas 3).
 ```
 pip install -r requirements.txt           # or requirements-core.txt: no torch/dashboard, TF-IDF only
 python run.py                              # writes outputs/final_output.csv and the logs
-pytest -q                                  # 133 tests
+pytest -q                                  # 144 tests
 python scripts/evaluate.py                 # scores against the labelled sets in eval/
 python scripts/reproducibility_check.py    # 3 separate runs, compares hashes
 streamlit run app.py                       # dashboard
@@ -169,9 +169,24 @@ unquoted comma, which breaks it as CSV).
 `outputs/route_week_audit.csv` has the full-precision numbers, the retrieved notes with scores,
 and the result of every check for every row.
 
+## Asking questions
+
+The dashboard's "Ask the assistant" tab answers plain-English questions from the run's own results
+(`src/assistant.py`). It finds the routes (or a city, or "short routes"), the period (a month, a
+year, a date, "latest week") and what is being asked, then builds the answer from the computed
+route-weeks, the parsed notes and the configured method. It understands:
+
+- why a route or month got pricier, and why a route is flagged (with the reason for each week)
+- which weeks were justified, and what a note says ("What does N003 say?")
+- the highest or lowest anomalies, and the cheapest or most expensive routes
+- the actual cost for any route and week, month or date, and comparisons between routes
+- counts ("How many weeks were flagged in 2025?") and how the numbers are calculated
+
+A question it can't match gets a list of example questions, never a guess.
+
 ## How I checked it
 
-- **Tests:** `pytest -q` runs 133 tests. They cover:
+- **Tests:** `pytest -q` runs 144 tests. They cover:
   - week boundaries and the cost formula
   - the history window, including the case with fewer than 8 weeks
   - leaving the route out of its peer average

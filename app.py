@@ -143,16 +143,29 @@ with tab_explain:
 
 # ---------------------------------------------------------------- Ask
 with tab_ask:
-    st.caption("Answers are assembled only from this run's computed results and validated notes (no LLM). "
-               "If a question can't be grounded, the assistant says so.")
-    examples = ["Why did Chennai-Bangalore become expensive in March 2025?",
-                "Which routes have unexplained increases?",
-                "What explains the Ahmedabad-Mumbai increase?",
-                "Which routes have the highest cost anomalies?"]
-    ex = st.selectbox("Example questions", [""] + examples)
-    q = st.text_input("Your question", value=ex)
+    st.caption("Answers are assembled only from this run's computed results and validated notes (no LLM, "
+               "no API). If a question can't be grounded, the assistant says so.")
+    examples = ["Why did Chennai-Bangalore get pricier in March 2025?",
+                "Why is Mumbai-Pune flagged?",
+                "Which weeks were justified by a note?",
+                "Which routes have the lowest cost anomalies?",
+                "What was the cost on Mumbai-Delhi in the latest week?",
+                "Compare Mumbai-Pune and Delhi-Jaipur",
+                "What does N003 say?",
+                "How is cost per tonne-km calculated?"]
+
+    def _use_example(text: str) -> None:
+        st.session_state["question"] = text
+
+    # One place to type; example buttons fill it in (a dropdown here looked like an input but wasn't one).
+    q = st.text_input("Ask a question about the results", key="question",
+                      placeholder="e.g. Why did Delhi-Jaipur get pricier in November 2024?")
+    st.caption("Or click an example:")
+    cols = st.columns(4)
+    for i, e in enumerate(examples):
+        cols[i % 4].button(e, key=f"example_{i}", on_click=_use_example, args=(e,))
     if q:
-        res = answer(q, out, run.audit)
+        res = answer(q, out, run.audit, run.cards)
         st.markdown(res.text.replace("\n", "  \n"))
         if not res.rows.empty:
             st.dataframe(res.rows[OUTPUT_COLUMNS], hide_index=True, width="stretch")
