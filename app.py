@@ -213,6 +213,9 @@ with tab_ask:
                            f"rules only; please try again in a moment.")
             else:
                 st.caption("Gemini read this as a question the analysis can't answer.")
+        elif not res.matched:
+            st.caption("Gemini is off: this app has no GEMINI_API_KEY secret, so only the built-in rules were "
+                       "used. Add it under Manage app → Settings → Secrets, then reboot the app.")
         st.markdown(res.text.replace("\n", "  \n"))
         if not res.rows.empty:
             st.dataframe(res.rows[OUTPUT_COLUMNS], hide_index=True, width="stretch")
