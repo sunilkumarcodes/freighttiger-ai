@@ -8,6 +8,7 @@ recomputes or reinterprets a verdict.
 from __future__ import annotations
 
 import json
+import os
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -15,6 +16,7 @@ import streamlit as st
 
 from src.assistant import answer
 from src.config import DEFAULT_CONFIG, FLAG_JUSTIFIED, FLAG_YES, OUTPUT_COLUMNS
+from src.llm_interpreter import DEFAULT_MODEL, GeminiInterpreter
 from src.pipeline import run_pipeline, submission_csv_bytes
 
 st.set_page_config(page_title="FreightTiger - AI Freight Cost Intelligence", layout="wide")
@@ -33,6 +35,21 @@ def csv_bytes(df: pd.DataFrame) -> bytes:
     return df.to_csv(index=False, lineterminator="\n").encode("utf-8")
 
 
+def setting(name: str, default: str | None = None) -> str | None:
+    """Streamlit secret (deployed app) or environment variable (local). Never hard-code keys."""
+    try:
+        value = st.secrets.get(name)
+    except Exception:  # no secrets.toml
+        value = None
+    return value or os.environ.get(name) or default
+
+
+@st.cache_resource(show_spinner=False)
+def gemini(api_key: str, model: str, routes: tuple, note_ids: tuple, first: str, last: str, summaries: tuple):
+    return GeminiInterpreter(api_key, list(routes), list(note_ids), first, last, model=model,
+                             note_summaries=list(summaries))
+
+
 with st.sidebar:
     st.header("Settings")
     retriever = st.radio("Retrieval backend", ["semantic", "tfidf"],
@@ -45,6 +62,20 @@ with st.sidebar:
         st.warning("Sentence-transformer model unavailable here; TF-IDF fallback is in use.")
     st.caption(f"Thresholds: ΔH ≥ {DEFAULT_CONFIG.own_history_threshold_pct:g}% or "
                f"ΔP ≥ {DEFAULT_CONFIG.peer_threshold_pct:g}%, with ΔH > 0")
+
+    gemini_key, gemini_model = setting("GEMINI_API_KEY"), setting("GEMINI_MODEL", DEFAULT_MODEL)
+    interpreter = None
+    if gemini_key:
+        interpreter = gemini(gemini_key, gemini_model, tuple(sorted(run.output["route"].unique())),
+                             tuple(sorted(run.cards)), run.output["week_of"].min(), run.output["week_of"].max(),
+                             tuple(f"{c.note_id} ({c.date:%Y-%m-%d}, {c.applies_to}): {c.summary}"
+                                   for c in sorted(run.cards.values(), key=lambda c: c.note_id)))
+        u = interpreter.usage
+        st.caption(f"Question understanding: built-in rules, with Gemini (`{gemini_model}`) for questions the "
+                   f"rules can't match.  \nGemini calls: {u.calls} ({u.failures} failed) · input tokens "
+                   f"{u.input_tokens} · output tokens {u.output_tokens}")
+    else:
+        st.caption("Question understanding: built-in rules only (set GEMINI_API_KEY to add Gemini).")
 
 out, audit = run.output, run.audit
 audit = audit.assign(week=pd.to_datetime(audit["week_of"]))
@@ -166,6 +197,17 @@ with tab_ask:
         cols[i % 4].button(e, key=f"example_{i}", on_click=_use_example, args=(e,))
     if q:
         res = answer(q, out, run.audit, run.cards)
+        if not res.matched and interpreter is not None:
+            # Gemini only rewrites the question into one the rules understand; the answer still comes
+            # from this run's results, so it cannot contain an invented fact.
+            with st.spinner("Asking Gemini to interpret the question..."):
+                canonical = interpreter.interpret(q)
+            retry = answer(canonical, out, run.audit, run.cards) if canonical else None
+            if retry is not None and retry.matched:
+                res = retry
+                st.caption(f"Understood with Gemini as: *{canonical}*")
+            else:
+                st.caption("Gemini couldn't turn this into a question the analysis can answer.")
         st.markdown(res.text.replace("\n", "  \n"))
         if not res.rows.empty:
             st.dataframe(res.rows[OUTPUT_COLUMNS], hide_index=True, width="stretch")

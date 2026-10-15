@@ -16,7 +16,7 @@ Python 3.12 or newer is needed (numpy 2.5 and pandas 3).
 ```
 pip install -r requirements.txt           # or requirements-core.txt: no torch/dashboard, TF-IDF only
 python run.py                              # writes outputs/final_output.csv and the logs
-pytest -q                                  # 144 tests
+pytest -q                                  # 174 tests
 python scripts/evaluate.py                 # scores against the labelled sets in eval/
 python scripts/reproducibility_check.py    # 3 separate runs, compares hashes
 streamlit run app.py                       # dashboard
@@ -184,9 +184,26 @@ route-weeks, the parsed notes and the configured method. It understands:
 
 A question it can't match gets a list of example questions, never a guess.
 
+**Optional Gemini fallback** (`src/llm_interpreter.py`). If `GEMINI_API_KEY` is set, a question
+the rules can't match is sent to Gemini (`gemini-3.8-flash`, temperature 0, low thinking). Gemini
+only classifies it, as JSON restricted by a schema to the assistant's question types and to the
+real route names and note ids, plus month, year and date. That becomes a standard question
+("did the floods down south matter?" becomes "Why did Chennai-Bangalore get pricier?"), which
+the same rule-based code answers from the results. Gemini can misread a question, but it can't
+put a fact into an answer. Without a key, or on any error, the assistant answers with the rules
+alone. Questions the rules understand never reach Gemini.
+
+To turn it on, set the key as a Streamlit secret (`.streamlit/secrets.toml`, which is
+git-ignored, or the app's Secrets settings on Streamlit Cloud) or as an environment variable:
+
+    GEMINI_API_KEY = "your-key"
+    GEMINI_MODEL = "gemini-3.8-flash"   # optional
+
+Never commit the key.
+
 ## How I checked it
 
-- **Tests:** `pytest -q` runs 144 tests. They cover:
+- **Tests:** `pytest -q` runs 174 tests. They cover:
   - week boundaries and the cost formula
   - the history window, including the case with fewer than 8 weeks
   - leaving the route out of its peer average
@@ -250,6 +267,13 @@ by note id. Input hashes ignore line endings, since git converts them on Windows
 
 `outputs/cost_report.json`: 0 LLM calls, 0 input and output tokens, $0. Embeddings are computed
 locally: 10 notes plus one query per flagged week (19), in a single batch.
+
+That covers the full run over the shipment file. The only LLM use anywhere is the optional Gemini
+fallback in the dashboard: one call per question the rules can't match, at about 900 input and
+140 output tokens (measured: 4 questions, 3,573 input and 569 output tokens, including thinking
+tokens). Repeated questions are cached. The sidebar shows the running count of calls and tokens.
+On Gemini's free tier this costs nothing; at paid rates, multiply these counts by Google's
+published per-token price.
 
 <!-- BACKEND:START -->
 The committed outputs use `sentence-transformers/all-MiniLM-L6-v2` running locally on CPU. A full run embeds 10 notes and 19 queries (935 tokens by the model's tokenizer), with no API calls.

@@ -40,6 +40,7 @@ _ASC = r"\b(lowest|smallest|least|cheapest|minimum)\b"
 class Answer:
     text: str
     rows: pd.DataFrame  # the evidence rows the answer is built from (submission columns)
+    matched: bool = True  # False when no intent matched and the answer is the help text
 
 
 @dataclass
@@ -341,8 +342,14 @@ def _cost_lookup(q: _Query) -> Answer | None:
     return Answer(f"Cost per tonne-km, {q.scope()}:\n" + "\n".join(lines), _rows(df, q.output))
 
 
+_COST_TOPIC = (r"\b(cost\w*|pric\w*|expens\w*|rate|rates|increase\w*|rise|rose|rising|flag\w*|odd|unusual|weird|"
+               r"strange|anomal\w*|spike\w*|jump\w*|justif\w*|explain\w*|why|happen\w*|going on|wrong|issue\w*|"
+               r"problem\w*|change\w*|anything)\b")
+
+
 def _route_or_period(q: _Query) -> Answer | None:
-    if not (q.routes or q.has_period):
+    # Naming a city is not enough ("what's the weather in Delhi?"): the question must be about costs.
+    if not (q.routes or q.has_period) or not re.search(_COST_TOPIC, q.lower):
         return None
     df = _scoped(q, q.output[q.output["flagged"] != FLAG_NO])
     if df.empty:
@@ -379,9 +386,9 @@ def answer(question: str, output: pd.DataFrame, audit: pd.DataFrame | None = Non
                latest=bool(re.search(r"\b(latest|most recent|last)\s+week\b", lower)),
                output=output, audit=audit, cards=cards, cfg=cfg)
     if not text:
-        return Answer(FALLBACK, output.head(0))
+        return Answer(FALLBACK, output.head(0), matched=False)
     for intent in INTENTS:
         result = intent(q)
         if result is not None:
             return result
-    return Answer(FALLBACK, output.head(0))
+    return Answer(FALLBACK, output.head(0), matched=False)
